@@ -1,0 +1,42 @@
+# @template: generic_text
+# @title: Generic Text Input
+# @category: inputs
+# @description: A user-editable template text field, surfaced in HA as a config control. Use it for free-form notes, labels, or short config strings - read it via id(...).state.
+# @platforms: esp32, esp32s2, esp32s3, esp32c3, esp32c6
+# @requires: none
+# @entities: text "Note"
+# @var st_name_prefix []: Prefix prepended to the entity name
+# @var st_disabled_by_default [false]: Ship the entity disabled in HA
+# @var st_internal [false]: Hide the entity from HA/web entirely
+# @var st_text_id [st_generic_text]: Entity id - MUST be overridden on every extra include (see notes)
+# @var st_text_name [Note]: Entity name (after st_name_prefix)
+# @var st_text_max_length [64]: Maximum number of characters allowed
+# @var st_text_restore [false]: Persist the text across reboots (C++ literal "true"/"false")
+# @note: MULTI-INSTANCE - include this file more than once to get several text fields. Each extra include MUST override BOTH st_text_id AND st_text_name; duplicate ids are a hard "ID redefined!" compile error.
+# @note: On a template text, restore_value is INCOMPATIBLE with a lambda, so this template uses optimistic:true (the entity holds its own state) and no lambda.
+# @note: Text values eat NVS space (a whole string per write, one flash write per change), so restore_value defaults to "false" here. Turn it "true" only when persistence is genuinely needed.
+
+defaults:
+  st_name_prefix: ""
+  st_disabled_by_default: "false"
+  st_internal: "false"
+  st_text_id: st_generic_text
+  st_text_name: "Note"
+  st_text_max_length: "64"
+  st_text_restore: "false"
+
+text:
+  - platform: template
+    # The id itself is a var so the file can be included multiple times.
+    id: ${st_text_id}
+    name: "${st_name_prefix}${st_text_name}"
+    mode: text
+    # optimistic + no lambda: the component stores its own state.
+    optimistic: true
+    restore_value: ${st_text_restore}
+    min_length: 0
+    max_length: ${st_text_max_length}
+    entity_category: config
+    icon: mdi:form-textbox
+    disabled_by_default: ${st_disabled_by_default}
+    internal: ${st_internal}

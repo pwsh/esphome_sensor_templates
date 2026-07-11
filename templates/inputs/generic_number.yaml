@@ -1,0 +1,55 @@
+# @template: generic_number
+# @title: Generic Number Input
+# @category: inputs
+# @description: A user-adjustable template number, surfaced in HA as a config control. Use it for thresholds, calibration offsets, setpoints - read the value elsewhere via id(...).state.
+# @platforms: esp32, esp32s2, esp32s3, esp32c3, esp32c6
+# @requires: none
+# @entities: number "Setpoint"
+# @var st_name_prefix []: Prefix prepended to the entity name
+# @var st_disabled_by_default [false]: Ship the entity disabled in HA
+# @var st_internal [false]: Hide the entity from HA/web entirely
+# @var st_number_id [st_generic_number]: Entity id - MUST be overridden on every extra include (see notes)
+# @var st_number_name [Setpoint]: Entity name (after st_name_prefix)
+# @var st_number_min [-100]: Minimum selectable value
+# @var st_number_max [100]: Maximum selectable value
+# @var st_number_step [1]: Increment between values
+# @var st_number_initial [0]: Value used before anything is restored/set
+# @var st_number_unit []: Unit of measurement shown in HA (e.g. "C", "%")
+# @var st_number_mode [box]: UI mode - box, slider, or auto
+# @var st_number_restore [true]: Persist the value across reboots (C++ literal "true"/"false")
+# @note: MULTI-INSTANCE - include this file more than once to get several numbers. Each extra include MUST override BOTH st_number_id AND st_number_name; duplicate ids are a hard "ID redefined!" compile error.
+# @note: On a template number, restore_value is INCOMPATIBLE with a lambda, so this template uses optimistic:true (the entity holds its own state) and no lambda.
+# @note: restore_value:true writes to NVS on every change (one flash write per change). NVS flash has limited write endurance - leave it "false" for values that change very often.
+
+defaults:
+  st_name_prefix: ""
+  st_disabled_by_default: "false"
+  st_internal: "false"
+  st_number_id: st_generic_number
+  st_number_name: "Setpoint"
+  st_number_min: "-100"
+  st_number_max: "100"
+  st_number_step: "1"
+  st_number_initial: "0"
+  st_number_unit: ""
+  st_number_mode: box
+  st_number_restore: "true"
+
+number:
+  - platform: template
+    # The id itself is a var so the file can be included multiple times.
+    id: ${st_number_id}
+    name: "${st_name_prefix}${st_number_name}"
+    min_value: ${st_number_min}
+    max_value: ${st_number_max}
+    step: ${st_number_step}
+    initial_value: ${st_number_initial}
+    unit_of_measurement: "${st_number_unit}"
+    mode: ${st_number_mode}
+    # optimistic + no lambda: the component stores its own state.
+    optimistic: true
+    restore_value: ${st_number_restore}
+    entity_category: config
+    icon: mdi:tune
+    disabled_by_default: ${st_disabled_by_default}
+    internal: ${st_internal}

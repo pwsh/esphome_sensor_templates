@@ -1,0 +1,35 @@
+# @template: uptime_text
+# @title: Uptime (human-readable)
+# @category: diagnostics
+# @description: Reports device uptime as a human-readable string (e.g. "3d 4h 12m 5s") using the uptime platform's built-in formatting. Nicer to read on a dashboard than raw seconds.
+# @platforms: esp32, esp32s2, esp32s3, esp32c3, esp32c6
+# @requires: none
+# @entities: text_sensor "Uptime"
+# @var st_update_interval [60s]: How often to refresh the formatted string
+# @var st_name_prefix []: Prefix prepended to the entity name
+# @var st_disabled_by_default [false]: Ship the entity disabled in HA
+# @var st_internal [false]: Hide the entity from HA/web entirely
+# @note: Supersedes the old hand-rolled lambda approach - the uptime text_sensor platform now formats the string natively via the format: block.
+
+defaults:
+  st_update_interval: 60s
+  st_name_prefix: ""
+  st_disabled_by_default: "false"
+  st_internal: "false"
+
+text_sensor:
+  - platform: uptime
+    id: st_uptime_text
+    name: "${st_name_prefix}Uptime"
+    icon: mdi:timer-outline
+    entity_category: diagnostic
+    disabled_by_default: ${st_disabled_by_default}
+    internal: ${st_internal}
+    update_interval: ${st_update_interval}
+    # Built-in formatting: separator + per-unit suffixes yield "3d 4h 12m 5s".
+    format:
+      separator: " "
+      days: "d"
+      hours: "h"
+      minutes: "m"
+      seconds: "s"

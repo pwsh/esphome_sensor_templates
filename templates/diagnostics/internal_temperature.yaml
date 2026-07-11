@@ -1,0 +1,51 @@
+# @template: internal_temperature
+# @title: Internal Temperature
+# @category: diagnostics
+# @description: Reads the on-die temperature sensor and derives a coupled overtemperature warning binary sensor that trips above a configurable threshold.
+# @platforms: esp32, esp32s2, esp32s3, esp32c3, esp32c6
+# @requires: none
+# @entities: sensor "Internal Temperature"; binary_sensor "Overtemperature"
+# @var st_update_interval [60s]: How often to sample the die temperature
+# @var st_name_prefix []: Prefix prepended to every entity name
+# @var st_disabled_by_default [false]: Ship the entities disabled in HA
+# @var st_internal [false]: Hide the entities from HA/web entirely
+# @var st_state_class [measurement]: state_class for the temperature sensor; set "" to opt out of HA long-term statistics
+# @var st_overtemp_threshold [80]: Warning trips above this many degC (numeric, substituted into C++)
+# @note: Some ESP32 variants report bogus values (e.g. a stuck 53.3 degC / raw 128). The internal_temperature component discards invalid readings, and the warning lambda ignores NaN.
+
+defaults:
+  st_update_interval: 60s
+  st_name_prefix: ""
+  st_disabled_by_default: "false"
+  st_internal: "false"
+  st_state_class: measurement
+  st_overtemp_threshold: "80"
+
+sensor:
+  - platform: internal_temperature
+    id: st_internal_temperature
+    name: "${st_name_prefix}Internal Temperature"
+    device_class: temperature
+    unit_of_measurement: "°C"
+    accuracy_decimals: 1
+    state_class: "${st_state_class}"
+    entity_category: diagnostic
+    disabled_by_default: ${st_disabled_by_default}
+    internal: ${st_internal}
+    icon: mdi:thermometer
+    update_interval: ${st_update_interval}
+
+binary_sensor:
+  - platform: template
+    id: st_overtemp_warning
+    name: "${st_name_prefix}Overtemperature"
+    device_class: heat
+    entity_category: diagnostic
+    disabled_by_default: ${st_disabled_by_default}
+    internal: ${st_internal}
+    icon: mdi:thermometer-alert
+    # Return {} while the reading is unknown so we never latch a false alarm on
+    # a NaN; ${st_overtemp_threshold} is a bare number spliced into the compare.
+    lambda: |-
+      if (isnan(id(st_internal_temperature).state)) return {};
+      return id(st_internal_temperature).state > ${st_overtemp_threshold};

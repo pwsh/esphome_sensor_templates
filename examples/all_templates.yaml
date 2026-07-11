@@ -1,0 +1,90 @@
+# Kitchen-sink validation config: includes EVERY template in the library on an
+# ESP32-S3 (the only target that supports psram.yaml). Proves that all files
+# merge cleanly - no ID collisions, no substitution clashes - and that required
+# vars work. Also includes generic_number twice to prove multi-instance vars.
+# Validate with:  esphome config examples/all_templates.yaml
+esphome:
+  name: sensor-templates-all
+  friendly_name: Sensor Templates Kitchen Sink
+
+esp32:
+  board: esp32-s3-devkitc-1
+  framework:
+    type: esp-idf
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+psram:
+  mode: octal   # matches the -N8R8 devkit variant; use quad for quad-PSRAM boards
+
+packages:
+  # ── core ────────────────────────────────────────────────────
+  core_api: !include
+    file: ../templates/core/api.yaml
+    vars: { st_api_key: !secret api_encryption_key }
+  core_ota: !include
+    file: ../templates/core/ota.yaml
+    vars: { st_ota_password: !secret ota_password }
+  core_web_server: !include
+    file: ../templates/core/web_server.yaml
+    vars: { st_web_password: !secret web_password }
+  core_logger: !include ../templates/core/logger.yaml
+  core_safe_mode: !include ../templates/core/safe_mode.yaml
+  core_time_sntp: !include ../templates/core/time_sntp.yaml
+  core_time_ha: !include ../templates/core/time_homeassistant.yaml
+
+  # ── diagnostics ─────────────────────────────────────────────
+  diag_uptime: !include ../templates/diagnostics/uptime.yaml
+  diag_uptime_text: !include ../templates/diagnostics/uptime_text.yaml
+  diag_last_boot: !include ../templates/diagnostics/last_boot.yaml
+  diag_heap: !include ../templates/diagnostics/heap.yaml
+  diag_loop_time: !include ../templates/diagnostics/loop_time.yaml
+  diag_cpu_frequency: !include ../templates/diagnostics/cpu_frequency.yaml
+  diag_psram: !include ../templates/diagnostics/psram.yaml
+  diag_device_info: !include ../templates/diagnostics/device_info.yaml
+  diag_internal_temperature: !include ../templates/diagnostics/internal_temperature.yaml
+  diag_boot_counter: !include ../templates/diagnostics/boot_counter.yaml
+  diag_nvs_usage: !include ../templates/diagnostics/nvs_usage.yaml
+  diag_esphome_version: !include ../templates/diagnostics/esphome_version.yaml
+
+  # ── network ─────────────────────────────────────────────────
+  net_wifi_signal: !include ../templates/network/wifi_signal.yaml
+  net_wifi_quality: !include ../templates/network/wifi_quality.yaml
+  net_wifi_info: !include ../templates/network/wifi_info.yaml
+  net_wifi_disconnects: !include ../templates/network/wifi_disconnect_counter.yaml
+  net_ha_status: !include ../templates/network/ha_status.yaml
+  net_watchdog: !include ../templates/network/connectivity_watchdog.yaml
+  net_wifi_channel: !include ../templates/network/wifi_channel.yaml
+
+  # ── controls ────────────────────────────────────────────────
+  ctl_restart: !include ../templates/controls/restart_button.yaml
+  ctl_safe_mode: !include ../templates/controls/safe_mode_button.yaml
+  ctl_factory_reset: !include ../templates/controls/factory_reset_button.yaml
+  ctl_shutdown: !include ../templates/controls/shutdown_button.yaml
+  ctl_daily_restart: !include ../templates/controls/daily_restart.yaml
+  ctl_status_led: !include
+    file: ../templates/controls/status_led.yaml
+    vars: { st_status_led_pin: GPIO48 }
+
+  # ── inputs ──────────────────────────────────────────────────
+  in_number: !include ../templates/inputs/generic_number.yaml
+  # Second instance: multi-instance templates must work when both the id and
+  # name vars are overridden.
+  in_number_2: !include
+    file: ../templates/inputs/generic_number.yaml
+    vars:
+      st_number_id: st_offset_number
+      st_number_name: Calibration Offset
+      st_number_min: "-10"
+      st_number_max: "10"
+      st_number_step: "0.1"
+  in_select: !include
+    file: ../templates/inputs/generic_select.yaml
+    vars:
+      st_select_options: ["Eco", "Comfort", "Boost"]
+      st_select_initial: Comfort
+  in_switch: !include ../templates/inputs/generic_switch.yaml
+  in_text: !include ../templates/inputs/generic_text.yaml
+  in_deep_sleep: !include ../templates/inputs/deep_sleep_control.yaml

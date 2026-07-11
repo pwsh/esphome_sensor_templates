@@ -1,0 +1,31 @@
+# @template: safe_mode_button
+# @title: Safe Mode Button
+# @category: controls
+# @description: Exposes a button that reboots the device into safe mode, where only network/logging/OTA run so a broken config can be re-flashed.
+# @platforms: esp32, esp32s2, esp32s3, esp32c3, esp32c6
+# @requires: none
+# @entities: button "Restart (Safe Mode)"
+# @var st_name_prefix []: Prefix prepended to the entity name
+# @var st_disabled_by_default [false]: Ship the entity disabled in HA
+# @var st_internal [false]: Hide the entity from HA/web entirely
+# @note: Safe-mode boot brings up only network, logging and OTA - the rest of your config is skipped - so a config that crashes on boot can still be re-flashed over the air.
+
+defaults:
+  st_name_prefix: ""
+  st_disabled_by_default: "false"
+  st_internal: "false"
+
+# Bare safe_mode: so the safe_mode button platform has something to trigger. Declared with no
+# options here: if core/safe_mode.yaml is also included, ESPHome deep-merges the two dicts
+# key-by-key, so its tuned thresholds win and this bare block adds nothing.
+safe_mode:
+
+button:
+  - platform: safe_mode
+    id: st_safe_mode_button
+    name: "${st_name_prefix}Restart (Safe Mode)"
+    entity_category: config
+    icon: mdi:restart-alert
+    device_class: restart
+    disabled_by_default: ${st_disabled_by_default}
+    internal: ${st_internal}

@@ -1,0 +1,48 @@
+# @template: wifi_signal
+# @title: WiFi Signal Strength
+# @category: network
+# @description: Reports WiFi RSSI in dBm and a derived signal-quality percentage. The two entities are coupled - the % is a copy of the dBm reading.
+# @platforms: esp32, esp32s2, esp32s3, esp32c3, esp32c6
+# @requires: wifi
+# @entities: sensor "WiFi Signal dBm"; sensor "WiFi Signal %"
+# @var st_update_interval [60s]: How often to sample RSSI
+# @var st_name_prefix []: Prefix prepended to every entity name
+# @var st_disabled_by_default [false]: Ship the entities disabled in HA
+# @var st_internal [false]: Hide the entities from HA/web entirely
+# @var st_state_class [measurement]: state_class for both entities; set "" to opt out of HA long-term statistics
+# @note: The % is 2*(x+100) clamped to 0..100 - the conventional community approximation, NOT a calibrated RSSI-to-quality mapping.
+
+defaults:
+  st_update_interval: 60s
+  st_name_prefix: ""
+  st_disabled_by_default: "false"
+  st_internal: "false"
+  st_state_class: measurement
+
+sensor:
+  - platform: wifi_signal
+    id: st_wifi_signal_dbm
+    name: "${st_name_prefix}WiFi Signal dBm"
+    device_class: signal_strength
+    unit_of_measurement: dBm
+    entity_category: diagnostic
+    state_class: "${st_state_class}"
+    disabled_by_default: ${st_disabled_by_default}
+    internal: ${st_internal}
+    update_interval: ${st_update_interval}
+
+  # Derived percentage. copy inherits device_class signal_strength from the
+  # source, so clear it explicitly - a percentage is not a dBm reading.
+  - platform: copy
+    source_id: st_wifi_signal_dbm
+    id: st_wifi_signal_percent
+    name: "${st_name_prefix}WiFi Signal %"
+    unit_of_measurement: "%"
+    icon: mdi:wifi
+    device_class: ""
+    entity_category: diagnostic
+    state_class: "${st_state_class}"
+    disabled_by_default: ${st_disabled_by_default}
+    internal: ${st_internal}
+    filters:
+      - lambda: return min(max(2 * (x + 100.0), 0.0), 100.0);

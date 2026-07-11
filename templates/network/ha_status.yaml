@@ -1,0 +1,26 @@
+# @template: ha_status
+# @title: Home Assistant Connected
+# @category: network
+# @description: Binary sensor that reports whether the device currently has a live connection to Home Assistant (native API or MQTT).
+# @platforms: esp32, esp32s2, esp32s3, esp32c3, esp32c6
+# @requires: api
+# @entities: binary_sensor "Connected"
+# @var st_name_prefix []: Prefix prepended to the entity name
+# @var st_disabled_by_default [false]: Ship the entity disabled in HA
+# @var st_internal [false]: Hide the entity from HA/web entirely
+# @note: Reports native-API/MQTT connection state (HA reachability), not raw WiFi association - it complements wifi_signal rather than duplicating it.
+# @note: No update_interval var - the status component polls its connection internally (1s); that cadence is by design and not tunable here.
+
+defaults:
+  st_name_prefix: ""
+  st_disabled_by_default: "false"
+  st_internal: "false"
+
+binary_sensor:
+  - platform: status
+    id: st_ha_status
+    name: "${st_name_prefix}Connected"
+    device_class: connectivity
+    entity_category: diagnostic
+    disabled_by_default: ${st_disabled_by_default}
+    internal: ${st_internal}

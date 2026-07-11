@@ -1,0 +1,13 @@
+# @template: time_homeassistant
+# @title: Home Assistant Time
+# @category: core
+# @description: Time source synced from Home Assistant. Provides the time: component other templates (daily_restart, last_boot) require.
+# @platforms: esp32, esp32s2, esp32s3, esp32c3, esp32c6
+# @requires: api
+# @entities: none (time source only)
+# @note: Timezone auto-syncs from Home Assistant unless you set it in YAML - override with "time: - id: !extend st_time_ha / timezone: Europe/Berlin".
+# @note: Do not include together with time_sntp.yaml unless you want two time sources.
+
+time:
+  - platform: homeassistant
+    id: st_time_ha

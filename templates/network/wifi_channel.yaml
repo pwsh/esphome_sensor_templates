@@ -1,0 +1,43 @@
+# @template: wifi_channel
+# @title: WiFi Channel
+# @category: network
+# @description: Reports the primary WiFi channel the device is currently associated on, read directly from the ESP-IDF station driver.
+# @platforms: esp32, esp32s2, esp32s3, esp32c3, esp32c6
+# @requires: wifi
+# @entities: sensor "WiFi Channel"
+# @var st_update_interval [60s]: How often to read the current channel
+# @var st_name_prefix []: Prefix prepended to the entity name
+# @var st_disabled_by_default [false]: Ship the entity disabled in HA
+# @var st_internal [false]: Hide the entity from HA/web entirely
+# @note: A channel number is not a measurement, so state_class is intentionally omitted (st_state_class does not apply).
+# @note: Uses esp_wifi_sta_get_ap_info directly (ESP-IDF). esp_wifi.h is NOT in scope in ESPHome lambdas by default, so this file force-includes it into main.cpp via platformio_options build_src_flags (project sources only - the framework build is untouched).
+# @note: Returns NAN (state unknown) when the device is not associated.
+
+defaults:
+  st_update_interval: 60s
+  st_name_prefix: ""
+  st_disabled_by_default: "false"
+  st_internal: "false"
+
+esphome:
+  # esp_wifi.h is not included in main.cpp by any component, so force-include
+  # it for the lambda below. build_src_flags only affects the project's own
+  # src/ (main.cpp) and the list concatenates with flags from other templates.
+  platformio_options:
+    build_src_flags:
+      - "-include esp_wifi.h"
+
+sensor:
+  - platform: template
+    id: st_wifi_channel
+    name: "${st_name_prefix}WiFi Channel"
+    icon: mdi:wifi-settings
+    accuracy_decimals: 0
+    entity_category: diagnostic
+    disabled_by_default: ${st_disabled_by_default}
+    internal: ${st_internal}
+    update_interval: ${st_update_interval}
+    lambda: |-
+      wifi_ap_record_t info;
+      if (esp_wifi_sta_get_ap_info(&info) != ESP_OK) return NAN;
+      return info.primary;

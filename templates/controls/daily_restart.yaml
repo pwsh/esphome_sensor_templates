@@ -1,0 +1,38 @@
+# @template: daily_restart
+# @title: Daily Scheduled Restart
+# @category: controls
+# @description: Reboots the device once a day at a configurable hour by attaching a schedule to an existing time component.
+# @platforms: esp32, esp32s2, esp32s3, esp32c3, esp32c6
+# @requires: time
+# @entities: button "Daily Restart" (always internal)
+# @var st_restart_hour [4]: Hour of day (0-23, local time) at which to restart
+# @var st_daily_restart_time_id [st_time_sntp]: id of the time component to attach the schedule to (st_time_ha for the HA time preset)
+# @note: Needs a time: component. Include core/time_sntp.yaml (default) or core/time_homeassistant.yaml (then pass st_daily_restart_time_id: st_time_ha). ESPHome allows only one SNTP instance, so this file deliberately does NOT ship its own clock - it attaches to yours via !extend.
+# @note: time.on_time does not reschedule across DST jumps - an event in the 01:00-02:00 window may be skipped or fire twice on the changeover day. Keeping the default 03:00-04:00 window is safe in most zones.
+
+defaults:
+  st_restart_hour: "4"
+  st_daily_restart_time_id: st_time_sntp
+
+time:
+  # Attach the schedule to an already-included time component (plain
+  # re-declaration of an id is a hard "ID redefined!" error - !extend is the
+  # sanctioned way for a package to add options to another package's entry).
+  - id: !extend ${st_daily_restart_time_id}
+    on_time:
+      - hours: ${st_restart_hour}
+        minutes: 0
+        seconds: 0
+        then:
+          - button.press: st_daily_restart_button
+
+button:
+  # Always internal: this is a scheduling primitive, not a user control. Kept as an entity (with a
+  # name) rather than a bare action so web_server's include_internal can still surface/trigger it.
+  - platform: restart
+    id: st_daily_restart_button
+    name: "Daily Restart"
+    entity_category: config
+    icon: mdi:restart
+    device_class: restart
+    internal: true

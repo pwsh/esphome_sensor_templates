@@ -1,0 +1,35 @@
+# @template: uptime
+# @title: Uptime (seconds)
+# @category: diagnostics
+# @description: Reports device uptime in seconds as a monotonic counter. The canonical "is it still up?" signal for HA availability graphs.
+# @platforms: esp32, esp32s2, esp32s3, esp32c3, esp32c6
+# @requires: none
+# @entities: sensor "Uptime"
+# @var st_update_interval [60s]: How often to publish the uptime value
+# @var st_name_prefix []: Prefix prepended to the entity name
+# @var st_disabled_by_default [false]: Ship the entity disabled in HA
+# @var st_internal [false]: Hide the entity from HA/web entirely
+# @note: This is a counter - state_class is hardcoded total_increasing and does NOT honor the ${st_state_class} knob.
+
+defaults:
+  st_update_interval: 60s
+  st_name_prefix: ""
+  st_disabled_by_default: "false"
+  st_internal: "false"
+
+sensor:
+  - platform: uptime
+    type: seconds
+    id: st_uptime_seconds
+    name: "${st_name_prefix}Uptime"
+    device_class: duration
+    # Monotonic counter: total_increasing is semantically required, so it is
+    # hardcoded here rather than driven by the ${st_state_class} knob.
+    state_class: total_increasing
+    unit_of_measurement: s
+    accuracy_decimals: 0
+    icon: mdi:timer-outline
+    entity_category: diagnostic
+    disabled_by_default: ${st_disabled_by_default}
+    internal: ${st_internal}
+    update_interval: ${st_update_interval}

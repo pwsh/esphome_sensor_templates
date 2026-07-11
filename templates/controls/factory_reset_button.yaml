@@ -1,0 +1,27 @@
+# @template: factory_reset_button
+# @title: Factory Reset Button
+# @category: controls
+# @description: Exposes a button that erases all stored preferences and returns the device to its fresh-flash state. Ships disabled by default because an accidental press is destructive.
+# @platforms: esp32, esp32s2, esp32s3, esp32c3, esp32c6
+# @requires: none
+# @entities: button "Factory Reset"
+# @var st_name_prefix []: Prefix prepended to the entity name
+# @var st_disabled_by_default [true]: Ship the entity disabled in HA (overrides the library default - see note)
+# @var st_internal [false]: Hide the entity from HA/web entirely
+# @note: IRREVERSIBLE. Erases all stored preferences - WiFi credentials, restore_value globals (e.g. boot counter), and improv/captive-portal provisioning - and returns the device to a fresh-flash state. It will not reconnect until re-provisioned.
+# @note: Ships disabled_by_default: true (unlike the rest of the library) so an accidental tap cannot wipe the device; the user must deliberately enable it in HA.
+
+defaults:
+  st_name_prefix: ""
+  # Override of the shared default: this control is destructive, so it ships disabled in HA.
+  st_disabled_by_default: "true"
+  st_internal: "false"
+
+button:
+  - platform: factory_reset
+    id: st_factory_reset_button
+    name: "${st_name_prefix}Factory Reset"
+    entity_category: config
+    icon: mdi:delete-restore
+    disabled_by_default: ${st_disabled_by_default}
+    internal: ${st_internal}

@@ -1,0 +1,50 @@
+# @template: wifi_info
+# @title: WiFi Info
+# @category: network
+# @description: Exposes the device's current WiFi/network identity - IP address, SSID, BSSID, MAC address and DNS - as text sensors.
+# @platforms: esp32, esp32s2, esp32s3, esp32c3, esp32c6
+# @requires: wifi
+# @entities: text_sensor "IP Address"; text_sensor "SSID"; text_sensor "BSSID"; text_sensor "MAC Address"; text_sensor "DNS Address"
+# @var st_name_prefix []: Prefix prepended to every entity name
+# @var st_disabled_by_default [false]: Ship the entities disabled in HA
+# @var st_internal [false]: Hide the entities from HA/web entirely
+# @note: wifi_info is event-driven (values refresh on association change), so there is no update_interval to tune.
+# @note: scan_results is deliberately omitted - it is expensive. Add it with `!extend st_wifi_info_ip` ... or a separate wifi_info block if you need it.
+
+defaults:
+  st_name_prefix: ""
+  st_disabled_by_default: "false"
+  st_internal: "false"
+
+text_sensor:
+  - platform: wifi_info
+    ip_address:
+      id: st_wifi_info_ip
+      name: "${st_name_prefix}IP Address"
+      entity_category: diagnostic
+      disabled_by_default: ${st_disabled_by_default}
+      internal: ${st_internal}
+    ssid:
+      id: st_wifi_info_ssid
+      name: "${st_name_prefix}SSID"
+      entity_category: diagnostic
+      disabled_by_default: ${st_disabled_by_default}
+      internal: ${st_internal}
+    bssid:
+      id: st_wifi_info_bssid
+      name: "${st_name_prefix}BSSID"
+      entity_category: diagnostic
+      disabled_by_default: ${st_disabled_by_default}
+      internal: ${st_internal}
+    mac_address:
+      id: st_wifi_info_mac
+      name: "${st_name_prefix}MAC Address"
+      entity_category: diagnostic
+      disabled_by_default: ${st_disabled_by_default}
+      internal: ${st_internal}
+    dns_address:
+      id: st_wifi_info_dns
+      name: "${st_name_prefix}DNS Address"
+      entity_category: diagnostic
+      disabled_by_default: ${st_disabled_by_default}
+      internal: ${st_internal}

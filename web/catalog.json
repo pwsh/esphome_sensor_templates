@@ -1,0 +1,2051 @@
+{
+  "min_esphome": "2026.5.0",
+  "categories": [
+    "core",
+    "diagnostics",
+    "network",
+    "controls",
+    "inputs"
+  ],
+  "templates": [
+    {
+      "slug": "daily_restart",
+      "title": "Daily Scheduled Restart",
+      "category": "controls",
+      "description": "Reboots the device once a day at a configurable hour by attaching a schedule to an existing time component.",
+      "platforms": [
+        "esp32",
+        "esp32s2",
+        "esp32s3",
+        "esp32c3",
+        "esp32c6"
+      ],
+      "requires": [
+        "time"
+      ],
+      "entities": [
+        {
+          "domain": "button",
+          "name": "Daily Restart",
+          "extra": "always internal"
+        }
+      ],
+      "vars": [
+        {
+          "name": "st_restart_hour",
+          "default": "4",
+          "required": false,
+          "secret": false,
+          "description": "Hour of day (0-23, local time) at which to restart"
+        },
+        {
+          "name": "st_daily_restart_time_id",
+          "default": "st_time_sntp",
+          "required": false,
+          "secret": false,
+          "description": "id of the time component to attach the schedule to (st_time_ha for the HA time preset)"
+        }
+      ],
+      "notes": [
+        "Needs a time: component. Include core/time_sntp.yaml (default) or core/time_homeassistant.yaml (then pass st_daily_restart_time_id: st_time_ha). ESPHome allows only one SNTP instance, so this file deliberately does NOT ship its own clock - it attaches to yours via !extend.",
+        "time.on_time does not reschedule across DST jumps - an event in the 01:00-02:00 window may be skipped or fire twice on the changeover day. Keeping the default 03:00-04:00 window is safe in most zones."
+      ],
+      "path": "templates/controls/daily_restart.yaml",
+      "body": "defaults:\n  st_restart_hour: \"4\"\n  st_daily_restart_time_id: st_time_sntp\n\ntime:\n  # Attach the schedule to an already-included time component (plain\n  # re-declaration of an id is a hard \"ID redefined!\" error - !extend is the\n  # sanctioned way for a package to add options to another package's entry).\n  - id: !extend ${st_daily_restart_time_id}\n    on_time:\n      - hours: ${st_restart_hour}\n        minutes: 0\n        seconds: 0\n        then:\n          - button.press: st_daily_restart_button\n\nbutton:\n  # Always internal: this is a scheduling primitive, not a user control. Kept as an entity (with a\n  # name) rather than a bare action so web_server's include_internal can still surface/trigger it.\n  - platform: restart\n    id: st_daily_restart_button\n    name: \"Daily Restart\"\n    entity_category: config\n    icon: mdi:restart\n    device_class: restart\n    internal: true\n"
+    },
+    {
+      "slug": "factory_reset_button",
+      "title": "Factory Reset Button",
+      "category": "controls",
+      "description": "Exposes a button that erases all stored preferences and returns the device to its fresh-flash state. Ships disabled by default because an accidental press is destructive.",
+      "platforms": [
+        "esp32",
+        "esp32s2",
+        "esp32s3",
+        "esp32c3",
+        "esp32c6"
+      ],
+      "requires": [],
+      "entities": [
+        {
+          "domain": "button",
+          "name": "Factory Reset"
+        }
+      ],
+      "vars": [
+        {
+          "name": "st_name_prefix",
+          "default": "",
+          "required": false,
+          "secret": false,
+          "description": "Prefix prepended to the entity name"
+        },
+        {
+          "name": "st_disabled_by_default",
+          "default": "true",
+          "required": false,
+          "secret": false,
+          "description": "Ship the entity disabled in HA (overrides the library default - see note)"
+        },
+        {
+          "name": "st_internal",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Hide the entity from HA/web entirely"
+        }
+      ],
+      "notes": [
+        "IRREVERSIBLE. Erases all stored preferences - WiFi credentials, restore_value globals (e.g. boot counter), and improv/captive-portal provisioning - and returns the device to a fresh-flash state. It will not reconnect until re-provisioned.",
+        "Ships disabled_by_default: true (unlike the rest of the library) so an accidental tap cannot wipe the device; the user must deliberately enable it in HA."
+      ],
+      "path": "templates/controls/factory_reset_button.yaml",
+      "body": "defaults:\n  st_name_prefix: \"\"\n  # Override of the shared default: this control is destructive, so it ships disabled in HA.\n  st_disabled_by_default: \"true\"\n  st_internal: \"false\"\n\nbutton:\n  - platform: factory_reset\n    id: st_factory_reset_button\n    name: \"${st_name_prefix}Factory Reset\"\n    entity_category: config\n    icon: mdi:delete-restore\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n"
+    },
+    {
+      "slug": "restart_button",
+      "title": "Restart Button",
+      "category": "controls",
+      "description": "Exposes a button in HA/web that soft-reboots the device (equivalent to a normal power cycle, config is re-applied).",
+      "platforms": [
+        "esp32",
+        "esp32s2",
+        "esp32s3",
+        "esp32c3",
+        "esp32c6"
+      ],
+      "requires": [],
+      "entities": [
+        {
+          "domain": "button",
+          "name": "Restart"
+        }
+      ],
+      "vars": [
+        {
+          "name": "st_name_prefix",
+          "default": "",
+          "required": false,
+          "secret": false,
+          "description": "Prefix prepended to the entity name"
+        },
+        {
+          "name": "st_disabled_by_default",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Ship the entity disabled in HA"
+        },
+        {
+          "name": "st_internal",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Hide the entity from HA/web entirely"
+        }
+      ],
+      "notes": [
+        "A plain restart re-applies the full config on next boot; use safe_mode_button.yaml instead if a broken config is preventing a normal boot."
+      ],
+      "path": "templates/controls/restart_button.yaml",
+      "body": "defaults:\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n\nbutton:\n  - platform: restart\n    id: st_restart_button\n    name: \"${st_name_prefix}Restart\"\n    entity_category: config\n    icon: mdi:restart\n    device_class: restart\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n"
+    },
+    {
+      "slug": "safe_mode_button",
+      "title": "Safe Mode Button",
+      "category": "controls",
+      "description": "Exposes a button that reboots the device into safe mode, where only network/logging/OTA run so a broken config can be re-flashed.",
+      "platforms": [
+        "esp32",
+        "esp32s2",
+        "esp32s3",
+        "esp32c3",
+        "esp32c6"
+      ],
+      "requires": [],
+      "entities": [
+        {
+          "domain": "button",
+          "name": "Restart (Safe Mode)"
+        }
+      ],
+      "vars": [
+        {
+          "name": "st_name_prefix",
+          "default": "",
+          "required": false,
+          "secret": false,
+          "description": "Prefix prepended to the entity name"
+        },
+        {
+          "name": "st_disabled_by_default",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Ship the entity disabled in HA"
+        },
+        {
+          "name": "st_internal",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Hide the entity from HA/web entirely"
+        }
+      ],
+      "notes": [
+        "Safe-mode boot brings up only network, logging and OTA - the rest of your config is skipped - so a config that crashes on boot can still be re-flashed over the air."
+      ],
+      "path": "templates/controls/safe_mode_button.yaml",
+      "body": "defaults:\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n\n# Bare safe_mode: so the safe_mode button platform has something to trigger. Declared with no\n# options here: if core/safe_mode.yaml is also included, ESPHome deep-merges the two dicts\n# key-by-key, so its tuned thresholds win and this bare block adds nothing.\nsafe_mode:\n\nbutton:\n  - platform: safe_mode\n    id: st_safe_mode_button\n    name: \"${st_name_prefix}Restart (Safe Mode)\"\n    entity_category: config\n    icon: mdi:restart-alert\n    device_class: restart\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n"
+    },
+    {
+      "slug": "shutdown_button",
+      "title": "Shutdown Button",
+      "category": "controls",
+      "description": "Exposes a button that shuts the device down into deep sleep with no wake source. Only a physical reset or power cycle brings it back.",
+      "platforms": [
+        "esp32",
+        "esp32s2",
+        "esp32s3",
+        "esp32c3",
+        "esp32c6"
+      ],
+      "requires": [],
+      "entities": [
+        {
+          "domain": "button",
+          "name": "Shutdown"
+        }
+      ],
+      "vars": [
+        {
+          "name": "st_name_prefix",
+          "default": "",
+          "required": false,
+          "secret": false,
+          "description": "Prefix prepended to the entity name"
+        },
+        {
+          "name": "st_disabled_by_default",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Ship the entity disabled in HA"
+        },
+        {
+          "name": "st_internal",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Hide the entity from HA/web entirely"
+        }
+      ],
+      "notes": [
+        "Enters deep sleep with no wake source configured - the device stops responding to WiFi/API/OTA. Only a physical reset button press or power cycle recovers it, so do not press this on a device you cannot reach."
+      ],
+      "path": "templates/controls/shutdown_button.yaml",
+      "body": "defaults:\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n\nbutton:\n  - platform: shutdown\n    id: st_shutdown_button\n    name: \"${st_name_prefix}Shutdown\"\n    entity_category: config\n    icon: mdi:power\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n"
+    },
+    {
+      "slug": "status_led",
+      "title": "Status LED",
+      "category": "controls",
+      "description": "Drives an on-board LED as a firmware status indicator - slow blink on warnings (WiFi/API down), fast blink on errors.",
+      "platforms": [
+        "esp32",
+        "esp32s2",
+        "esp32s3",
+        "esp32c3",
+        "esp32c6"
+      ],
+      "requires": [],
+      "entities": [],
+      "vars": [
+        {
+          "name": "st_status_led_pin",
+          "default": "",
+          "required": true,
+          "secret": false,
+          "description": "GPIO the status LED is wired to (e.g. GPIO8)"
+        },
+        {
+          "name": "st_status_led_inverted",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "C++ literal \"true\"/\"false\" - set \"true\" for active-low LEDs (many on-board LEDs)"
+        }
+      ],
+      "notes": [
+        "Blink semantics are fixed by ESPHome and cannot be customized - slow blink = warning (wifi/api down), fast blink = error. There is no HA entity; the LED reflects internal firmware state only.",
+        "The pin is claimed exclusively by status_led and is otherwise unusable for other outputs."
+      ],
+      "path": "templates/controls/status_led.yaml",
+      "body": "defaults:\n  st_status_led_inverted: \"false\"\n\nstatus_led:\n  pin:\n    number: ${st_status_led_pin}\n    inverted: ${st_status_led_inverted}\n"
+    },
+    {
+      "slug": "api",
+      "title": "Home Assistant API",
+      "category": "core",
+      "description": "Native Home Assistant API preset with encryption and a survival-friendly reboot_timeout. Provides the api: component templates like time_homeassistant require.",
+      "platforms": [
+        "esp32",
+        "esp32s2",
+        "esp32s3",
+        "esp32c3",
+        "esp32c6"
+      ],
+      "requires": [
+        "wifi"
+      ],
+      "entities": [],
+      "vars": [
+        {
+          "name": "st_api_reboot_timeout",
+          "default": "0s",
+          "required": false,
+          "secret": false,
+          "description": "How long the API may stay disconnected before the device reboots (0s = never)"
+        },
+        {
+          "name": "st_api_key",
+          "default": "",
+          "required": true,
+          "secret": true,
+          "description": "Base64 API encryption key; pass via vars: { st_api_key: !secret api_key }"
+        }
+      ],
+      "notes": [
+        "Never store the key in this file - it is a required var so the user supplies it with their own !secret."
+      ],
+      "path": "templates/core/api.yaml",
+      "body": "defaults:\n  st_api_reboot_timeout: 0s\n\napi:\n  # reboot_timeout defaults to 15min in ESPHome. With any short timeout the\n  # device reboot-loops whenever Home Assistant is unreachable longer than the\n  # window - HA restarts, HA OS updates, add-on upgrades - and every reboot\n  # wipes in-RAM state (uptime, un-persisted globals, sensor history). Setting\n  # 0s means \"never reboot just because the API is down\": the device keeps\n  # running standalone and stays usable via web_server until HA returns.\n  reboot_timeout: ${st_api_reboot_timeout}\n  encryption:\n    # Required var - no default. Users pass: vars: { st_api_key: !secret api_key }\n    key: ${st_api_key}\n"
+    },
+    {
+      "slug": "logger",
+      "title": "Logger",
+      "category": "core",
+      "description": "Logger preset with configurable level and UART baud rate.",
+      "platforms": [
+        "esp32",
+        "esp32s2",
+        "esp32s3",
+        "esp32c3",
+        "esp32c6"
+      ],
+      "requires": [],
+      "entities": [],
+      "vars": [
+        {
+          "name": "st_log_level",
+          "default": "INFO",
+          "required": false,
+          "secret": false,
+          "description": "Log verbosity (NONE, ERROR, WARN, INFO, DEBUG, VERBOSE, VERY_VERBOSE)"
+        },
+        {
+          "name": "st_log_baud_rate",
+          "default": "115200",
+          "required": false,
+          "secret": false,
+          "description": "UART baud rate; set 0 to disable UART (serial) logging entirely"
+        }
+      ],
+      "notes": [
+        "Since ESPHome 2026.4.0 state-change messages are logged at VERBOSE, so INFO/DEBUG stays cheap - the noisy per-state spam no longer floods those levels."
+      ],
+      "path": "templates/core/logger.yaml",
+      "body": "defaults:\n  st_log_level: INFO\n  st_log_baud_rate: \"115200\"\n\nlogger:\n  level: ${st_log_level}\n  # Set st_log_baud_rate to 0 to turn off UART logging (frees the serial pins,\n  # saves the cost of formatting/writing every line to the port).\n  baud_rate: ${st_log_baud_rate}\n"
+    },
+    {
+      "slug": "ota",
+      "title": "OTA Updates",
+      "category": "core",
+      "description": "Over-the-air update preset (esphome platform) with a password gate and progress logging hooks.",
+      "platforms": [
+        "esp32",
+        "esp32s2",
+        "esp32s3",
+        "esp32c3",
+        "esp32c6"
+      ],
+      "requires": [
+        "wifi"
+      ],
+      "entities": [],
+      "vars": [
+        {
+          "name": "st_ota_password",
+          "default": "",
+          "required": true,
+          "secret": true,
+          "description": "OTA upload password; pass via vars: { st_ota_password: !secret ota_password }"
+        }
+      ],
+      "notes": [
+        "Presence of ota: also auto-enables safe_mode. Include safe_mode.yaml only to tune its thresholds."
+      ],
+      "path": "templates/core/ota.yaml",
+      "body": "ota:\n  - platform: esphome\n    # Required var - no default. Users pass: vars: { st_ota_password: !secret ota_password }\n    password: ${st_ota_password}\n    on_begin:\n      then:\n        - logger.log: \"OTA start\"\n    on_progress:\n      then:\n        - logger.log:\n            format: \"OTA progress %0.1f%%\"\n            args: [\"x\"]\n    on_end:\n      then:\n        - logger.log: \"OTA end\"\n    on_error:\n      then:\n        - logger.log:\n            format: \"OTA update error %d\"\n            args: [\"x\"]\n"
+    },
+    {
+      "slug": "safe_mode",
+      "title": "Safe Mode",
+      "category": "core",
+      "description": "Tunes the boot-loop recovery safe_mode: after repeated crash-boots the device stops applying its config so an OTA fix can land.",
+      "platforms": [
+        "esp32",
+        "esp32s2",
+        "esp32s3",
+        "esp32c3",
+        "esp32c6"
+      ],
+      "requires": [],
+      "entities": [],
+      "vars": [
+        {
+          "name": "st_safe_mode_attempts",
+          "default": "10",
+          "required": false,
+          "secret": false,
+          "description": "Consecutive failed boots before entering safe mode"
+        },
+        {
+          "name": "st_safe_mode_reboot_timeout",
+          "default": "5min",
+          "required": false,
+          "secret": false,
+          "description": "How long to wait in safe mode for an OTA before rebooting to retry"
+        },
+        {
+          "name": "st_safe_mode_boot_good_after",
+          "default": "1min",
+          "required": false,
+          "secret": false,
+          "description": "Uptime after which a boot counts as successful and the attempt counter resets"
+        }
+      ],
+      "notes": [
+        "Required by the safe_mode button/switch platforms. safe_mode is auto-enabled anyway whenever ota: is present - this preset just tunes its thresholds."
+      ],
+      "path": "templates/core/safe_mode.yaml",
+      "body": "defaults:\n  st_safe_mode_attempts: \"10\"\n  st_safe_mode_reboot_timeout: 5min\n  st_safe_mode_boot_good_after: 1min\n\nsafe_mode:\n  num_attempts: ${st_safe_mode_attempts}\n  reboot_timeout: ${st_safe_mode_reboot_timeout}\n  boot_is_good_after: ${st_safe_mode_boot_good_after}\n  on_safe_mode:\n    - logger.log: \"Safe mode activated\"\n"
+    },
+    {
+      "slug": "time_homeassistant",
+      "title": "Home Assistant Time",
+      "category": "core",
+      "description": "Time source synced from Home Assistant. Provides the time: component other templates (daily_restart, last_boot) require.",
+      "platforms": [
+        "esp32",
+        "esp32s2",
+        "esp32s3",
+        "esp32c3",
+        "esp32c6"
+      ],
+      "requires": [
+        "api"
+      ],
+      "entities": [],
+      "vars": [],
+      "notes": [
+        "Timezone auto-syncs from Home Assistant unless you set it in YAML - override with \"time: - id: !extend st_time_ha / timezone: Europe/Berlin\".",
+        "Do not include together with time_sntp.yaml unless you want two time sources."
+      ],
+      "path": "templates/core/time_homeassistant.yaml",
+      "body": "time:\n  - platform: homeassistant\n    id: st_time_ha\n"
+    },
+    {
+      "slug": "time_sntp",
+      "title": "SNTP Time",
+      "category": "core",
+      "description": "SNTP time source with configurable server. Provides the time: component other templates (daily_restart, last_boot) require.",
+      "platforms": [
+        "esp32",
+        "esp32s2",
+        "esp32s3",
+        "esp32c3",
+        "esp32c6"
+      ],
+      "requires": [
+        "wifi"
+      ],
+      "entities": [],
+      "vars": [
+        {
+          "name": "st_ntp_server",
+          "default": "0.pool.ntp.org",
+          "required": false,
+          "secret": false,
+          "description": "NTP server to sync against"
+        }
+      ],
+      "notes": [
+        "Timezone is deliberately NOT set here - ESPHome auto-infers it from the build machine. Override per device with \"time: - id: !extend st_time_sntp / timezone: Europe/Berlin\".",
+        "Do not include together with time_homeassistant.yaml unless you want two time sources."
+      ],
+      "path": "templates/core/time_sntp.yaml",
+      "body": "defaults:\n  st_ntp_server: 0.pool.ntp.org\n\ntime:\n  - platform: sntp\n    id: st_time_sntp\n    servers:\n      - ${st_ntp_server}\n    on_time_sync:\n      then:\n        - logger.log: \"Synchronized system clock\"\n"
+    },
+    {
+      "slug": "web_server",
+      "title": "Web Server",
+      "category": "core",
+      "description": "Built-in web UI (v3) with HTTP basic auth and a boot-time gate that can disable auth without editing the config. Keeps the device usable standalone when Home Assistant is down.",
+      "platforms": [
+        "esp32",
+        "esp32s2",
+        "esp32s3",
+        "esp32c3",
+        "esp32c6"
+      ],
+      "requires": [
+        "wifi"
+      ],
+      "entities": [],
+      "vars": [
+        {
+          "name": "st_web_include_internal",
+          "default": "true",
+          "required": false,
+          "secret": false,
+          "description": "Show internal: entities in the web UI too (C++ bool literal)"
+        },
+        {
+          "name": "st_web_username",
+          "default": "admin",
+          "required": false,
+          "secret": false,
+          "description": "HTTP basic auth username; MUST NOT be empty (see note)"
+        },
+        {
+          "name": "st_web_password",
+          "default": "",
+          "required": true,
+          "secret": true,
+          "description": "HTTP basic auth password; pass via vars: { st_web_password: !secret web_password }"
+        },
+        {
+          "name": "st_web_auth",
+          "default": "true",
+          "required": false,
+          "secret": false,
+          "description": "Enable auth at boot - must be exactly \"true\" or \"false\", substituted as a C++ bool literal"
+        }
+      ],
+      "notes": [
+        "st_web_auth is injected raw into a lambda as a C++ bool literal, so it MUST be exactly \"true\" or \"false\" - not \"1\", \"yes\", or \"True\".",
+        "WebServerBase::add_handler only wraps handlers in auth middleware when credentials are non-empty AT REGISTRATION TIME. web_server registers its handlers in setup() at priority ~249 (WIFI-1), so clearing the credentials in on_boot at priority 600 (which runs earlier) disables auth for the whole boot.",
+        "st_web_username must NOT be empty - web_server_idf's authenticate() FAILS OPEN on an empty username (returns true for every request), silently disabling auth. Password-only auth is therefore not possible."
+      ],
+      "path": "templates/core/web_server.yaml",
+      "body": "defaults:\n  st_web_include_internal: \"true\"\n  st_web_username: \"admin\"\n  st_web_auth: \"true\"\n\nesphome:\n  on_boot:\n    # Priority 600 runs before web_server registers its handlers (setup, ~249),\n    # so clearing credentials here means add_handler never wraps them in auth\n    # middleware for this boot. See @note above for the timing details.\n    - priority: 600\n      then:\n        - lambda: |-\n            if (!${st_web_auth}) {\n              web_server_base::global_web_server_base->set_auth_username(\"\");\n              web_server_base::global_web_server_base->set_auth_password(\"\");\n            }\n\nweb_server:\n  version: 3\n  include_internal: ${st_web_include_internal}\n  auth:\n    # Username must stay non-empty even when auth is \"disabled\" - an empty\n    # username makes authenticate() fail open (see @note above).\n    username: \"${st_web_username}\"\n    # Required var - no default. Users pass: vars: { st_web_password: !secret web_password }\n    password: \"${st_web_password}\"\n"
+    },
+    {
+      "slug": "boot_counter",
+      "title": "Boot Counter",
+      "category": "diagnostics",
+      "description": "Counts device boots in an NVS-backed global and publishes the running total. Rising counts between expected reboots point at brown-outs, watchdog resets, or crashes.",
+      "platforms": [
+        "esp32",
+        "esp32s2",
+        "esp32s3",
+        "esp32c3",
+        "esp32c6"
+      ],
+      "requires": [],
+      "entities": [
+        {
+          "domain": "sensor",
+          "name": "Boot Count"
+        }
+      ],
+      "vars": [
+        {
+          "name": "st_name_prefix",
+          "default": "",
+          "required": false,
+          "secret": false,
+          "description": "Prefix prepended to the entity name"
+        },
+        {
+          "name": "st_disabled_by_default",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Ship the entity disabled in HA"
+        },
+        {
+          "name": "st_internal",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Hide the entity from HA/web entirely"
+        }
+      ],
+      "notes": [
+        "One NVS write per boot (restore_value) - negligible flash wear. The count survives reboots and OTA but NOT a factory_reset or a wired flash-erase.",
+        "This is a counter - state_class is hardcoded total_increasing and does NOT honor the ${st_state_class} knob. There is no update_interval: the value is published once from on_boot."
+      ],
+      "path": "templates/diagnostics/boot_counter.yaml",
+      "body": "defaults:\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n\n# NVS-backed counter. restore_value persists it across reboots/OTA.\nglobals:\n  - id: st_boot_counter_value\n    type: int\n    restore_value: true\n    initial_value: \"0\"\n\nesphome:\n  on_boot:\n    # priority 600 runs early, before Wi-Fi/API, so the count is ready to publish.\n    - priority: 600\n      then:\n        - lambda: |-\n            id(st_boot_counter_value) += 1;\n            id(st_boot_counter).publish_state(id(st_boot_counter_value));\n\nsensor:\n  - platform: template\n    id: st_boot_counter\n    name: \"${st_name_prefix}Boot Count\"\n    # Published only from on_boot; never polled.\n    update_interval: never\n    accuracy_decimals: 0\n    # Monotonic counter: total_increasing is required, hardcoded (no knob).\n    state_class: total_increasing\n    icon: mdi:counter\n    entity_category: diagnostic\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n"
+    },
+    {
+      "slug": "cpu_frequency",
+      "title": "CPU Frequency",
+      "category": "diagnostics",
+      "description": "Reports the current CPU clock from the debug component. Useful for confirming power-save/DFS behaviour or a mis-set framework clock.",
+      "platforms": [
+        "esp32",
+        "esp32s2",
+        "esp32s3",
+        "esp32c3",
+        "esp32c6"
+      ],
+      "requires": [],
+      "entities": [
+        {
+          "domain": "sensor",
+          "name": "CPU Frequency"
+        }
+      ],
+      "vars": [
+        {
+          "name": "st_update_interval",
+          "default": "60s",
+          "required": false,
+          "secret": false,
+          "description": "How often the debug hub refreshes the clock"
+        },
+        {
+          "name": "st_name_prefix",
+          "default": "",
+          "required": false,
+          "secret": false,
+          "description": "Prefix prepended to the entity name"
+        },
+        {
+          "name": "st_disabled_by_default",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Ship the entity disabled in HA"
+        },
+        {
+          "name": "st_internal",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Hide the entity from HA/web entirely"
+        },
+        {
+          "name": "st_state_class",
+          "default": "measurement",
+          "required": false,
+          "secret": false,
+          "description": "state_class for the sensor; set \"\" to opt out of HA long-term statistics"
+        }
+      ],
+      "notes": [
+        "Shares the debug: hub with the other debug-based templates; dicts merge across packages and the last update_interval wins."
+      ],
+      "path": "templates/diagnostics/cpu_frequency.yaml",
+      "body": "defaults:\n  st_update_interval: 60s\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n  st_state_class: measurement\n\n# Shared debug hub (merges with other debug-based templates).\ndebug:\n  update_interval: ${st_update_interval}\n\nsensor:\n  - platform: debug\n    # The debug component reports the clock in Hz, so unit is Hz and it is a\n    # whole number - accuracy_decimals 0.\n    cpu_frequency:\n      id: st_cpu_frequency\n      name: \"${st_name_prefix}CPU Frequency\"\n      device_class: frequency\n      unit_of_measurement: Hz\n      accuracy_decimals: 0\n      state_class: \"${st_state_class}\"\n      entity_category: diagnostic\n      disabled_by_default: ${st_disabled_by_default}\n      internal: ${st_internal}\n      icon: mdi:speedometer\n"
+    },
+    {
+      "slug": "device_info",
+      "title": "Device Info",
+      "category": "diagnostics",
+      "description": "Exposes the debug component's device text sensors - a one-line hardware/firmware summary (chip model, cores, revision, flash size, ESPHome version) and the last reset reason.",
+      "platforms": [
+        "esp32",
+        "esp32s2",
+        "esp32s3",
+        "esp32c3",
+        "esp32c6"
+      ],
+      "requires": [],
+      "entities": [
+        {
+          "domain": "text_sensor",
+          "name": "Device Info"
+        },
+        {
+          "domain": "text_sensor",
+          "name": "Reset Reason"
+        }
+      ],
+      "vars": [
+        {
+          "name": "st_update_interval",
+          "default": "60s",
+          "required": false,
+          "secret": false,
+          "description": "How often the debug hub refreshes the text sensors"
+        },
+        {
+          "name": "st_name_prefix",
+          "default": "",
+          "required": false,
+          "secret": false,
+          "description": "Prefix prepended to every entity name"
+        },
+        {
+          "name": "st_disabled_by_default",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Ship the entities disabled in HA"
+        },
+        {
+          "name": "st_internal",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Hide the entities from HA/web entirely"
+        }
+      ],
+      "notes": [
+        "Prefer this over hand-rolled esp_reset_reason() lambdas - the debug component decodes the reason string for you.",
+        "Shares the debug: hub with the other debug-based templates; dicts merge across packages and the last update_interval wins."
+      ],
+      "path": "templates/diagnostics/device_info.yaml",
+      "body": "defaults:\n  st_update_interval: 60s\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n\n# Shared debug hub (merges with other debug-based templates).\ndebug:\n  update_interval: ${st_update_interval}\n\ntext_sensor:\n  - platform: debug\n    # device: is the multi-field hardware/firmware summary; reset_reason: is the\n    # decoded cause of the last restart (both text - no state_class).\n    device:\n      id: st_device_info\n      name: \"${st_name_prefix}Device Info\"\n      entity_category: diagnostic\n      disabled_by_default: ${st_disabled_by_default}\n      internal: ${st_internal}\n      icon: mdi:chip\n    reset_reason:\n      id: st_reset_reason\n      name: \"${st_name_prefix}Reset Reason\"\n      entity_category: diagnostic\n      disabled_by_default: ${st_disabled_by_default}\n      internal: ${st_internal}\n      icon: mdi:restart\n"
+    },
+    {
+      "slug": "esphome_version",
+      "title": "ESPHome Version",
+      "category": "diagnostics",
+      "description": "Publishes the ESPHome version the firmware was built with via the version text_sensor platform. Handy for spotting devices that missed an OTA.",
+      "platforms": [
+        "esp32",
+        "esp32s2",
+        "esp32s3",
+        "esp32c3",
+        "esp32c6"
+      ],
+      "requires": [],
+      "entities": [
+        {
+          "domain": "text_sensor",
+          "name": "ESPHome Version"
+        }
+      ],
+      "vars": [
+        {
+          "name": "st_name_prefix",
+          "default": "",
+          "required": false,
+          "secret": false,
+          "description": "Prefix prepended to the entity name"
+        },
+        {
+          "name": "st_disabled_by_default",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Ship the entity disabled in HA"
+        },
+        {
+          "name": "st_internal",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Hide the entity from HA/web entirely"
+        },
+        {
+          "name": "st_version_hide_timestamp",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "\"true\" drops the compile timestamp and shows just the version string (C++ literal)"
+        }
+      ],
+      "notes": [
+        "The value is fixed at compile time, so it only changes on a rebuild/OTA."
+      ],
+      "path": "templates/diagnostics/esphome_version.yaml",
+      "body": "defaults:\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n  st_version_hide_timestamp: \"false\"\n\ntext_sensor:\n  - platform: version\n    id: st_esphome_version\n    name: \"${st_name_prefix}ESPHome Version\"\n    icon: mdi:chip\n    entity_category: diagnostic\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n    # true = show just the version, false = append the build timestamp.\n    hide_timestamp: ${st_version_hide_timestamp}\n"
+    },
+    {
+      "slug": "heap",
+      "title": "Heap Diagnostics",
+      "category": "diagnostics",
+      "description": "Reports internal heap health from the debug component - free bytes, largest allocatable block, historical minimum free, and fragmentation percent. The first thing to check when a device reboots under memory pressure.",
+      "platforms": [
+        "esp32",
+        "esp32s2",
+        "esp32s3",
+        "esp32c3",
+        "esp32c6"
+      ],
+      "requires": [],
+      "entities": [
+        {
+          "domain": "sensor",
+          "name": "Heap Free"
+        },
+        {
+          "domain": "sensor",
+          "name": "Heap Max Block"
+        },
+        {
+          "domain": "sensor",
+          "name": "Heap Min Free"
+        },
+        {
+          "domain": "sensor",
+          "name": "Heap Fragmentation"
+        }
+      ],
+      "vars": [
+        {
+          "name": "st_update_interval",
+          "default": "60s",
+          "required": false,
+          "secret": false,
+          "description": "How often the debug hub refreshes heap stats"
+        },
+        {
+          "name": "st_name_prefix",
+          "default": "",
+          "required": false,
+          "secret": false,
+          "description": "Prefix prepended to every entity name"
+        },
+        {
+          "name": "st_disabled_by_default",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Ship the entities disabled in HA"
+        },
+        {
+          "name": "st_internal",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Hide the entities from HA/web entirely"
+        },
+        {
+          "name": "st_state_class",
+          "default": "measurement",
+          "required": false,
+          "secret": false,
+          "description": "state_class for the numeric sensors; set \"\" to opt out of HA long-term statistics"
+        }
+      ],
+      "notes": [
+        "Several diagnostics templates declare the debug: hub. ESPHome deep-merges the dict across packages, so the last update_interval wins - keep the knob identical everywhere.",
+        "Sustained fragmentation above ~50% is risky - large contiguous allocations (TLS buffers, JSON) can fail even with free bytes available."
+      ],
+      "path": "templates/diagnostics/heap.yaml",
+      "body": "defaults:\n  st_update_interval: 60s\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n  st_state_class: measurement\n\n# Shared debug hub. Dicts merge across packages; the update_interval set by\n# whichever debug-based template is merged last wins for all of them.\ndebug:\n  update_interval: ${st_update_interval}\n\nsensor:\n  - platform: debug\n    free:\n      id: st_heap_free\n      name: \"${st_name_prefix}Heap Free\"\n      state_class: \"${st_state_class}\"\n      entity_category: diagnostic\n      disabled_by_default: ${st_disabled_by_default}\n      internal: ${st_internal}\n      icon: mdi:memory\n    block:\n      id: st_heap_max_block\n      name: \"${st_name_prefix}Heap Max Block\"\n      state_class: \"${st_state_class}\"\n      entity_category: diagnostic\n      disabled_by_default: ${st_disabled_by_default}\n      internal: ${st_internal}\n      icon: mdi:memory\n    min_free:\n      id: st_heap_min_free\n      name: \"${st_name_prefix}Heap Min Free\"\n      state_class: \"${st_state_class}\"\n      entity_category: diagnostic\n      disabled_by_default: ${st_disabled_by_default}\n      internal: ${st_internal}\n      icon: mdi:memory\n    fragmentation:\n      id: st_heap_fragmentation\n      name: \"${st_name_prefix}Heap Fragmentation\"\n      unit_of_measurement: \"%\"\n      state_class: \"${st_state_class}\"\n      entity_category: diagnostic\n      disabled_by_default: ${st_disabled_by_default}\n      internal: ${st_internal}\n      icon: mdi:memory\n"
+    },
+    {
+      "slug": "internal_temperature",
+      "title": "Internal Temperature",
+      "category": "diagnostics",
+      "description": "Reads the on-die temperature sensor and derives a coupled overtemperature warning binary sensor that trips above a configurable threshold.",
+      "platforms": [
+        "esp32",
+        "esp32s2",
+        "esp32s3",
+        "esp32c3",
+        "esp32c6"
+      ],
+      "requires": [],
+      "entities": [
+        {
+          "domain": "sensor",
+          "name": "Internal Temperature"
+        },
+        {
+          "domain": "binary_sensor",
+          "name": "Overtemperature"
+        }
+      ],
+      "vars": [
+        {
+          "name": "st_update_interval",
+          "default": "60s",
+          "required": false,
+          "secret": false,
+          "description": "How often to sample the die temperature"
+        },
+        {
+          "name": "st_name_prefix",
+          "default": "",
+          "required": false,
+          "secret": false,
+          "description": "Prefix prepended to every entity name"
+        },
+        {
+          "name": "st_disabled_by_default",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Ship the entities disabled in HA"
+        },
+        {
+          "name": "st_internal",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Hide the entities from HA/web entirely"
+        },
+        {
+          "name": "st_state_class",
+          "default": "measurement",
+          "required": false,
+          "secret": false,
+          "description": "state_class for the temperature sensor; set \"\" to opt out of HA long-term statistics"
+        },
+        {
+          "name": "st_overtemp_threshold",
+          "default": "80",
+          "required": false,
+          "secret": false,
+          "description": "Warning trips above this many degC (numeric, substituted into C++)"
+        }
+      ],
+      "notes": [
+        "Some ESP32 variants report bogus values (e.g. a stuck 53.3 degC / raw 128). The internal_temperature component discards invalid readings, and the warning lambda ignores NaN."
+      ],
+      "path": "templates/diagnostics/internal_temperature.yaml",
+      "body": "defaults:\n  st_update_interval: 60s\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n  st_state_class: measurement\n  st_overtemp_threshold: \"80\"\n\nsensor:\n  - platform: internal_temperature\n    id: st_internal_temperature\n    name: \"${st_name_prefix}Internal Temperature\"\n    device_class: temperature\n    unit_of_measurement: \"°C\"\n    accuracy_decimals: 1\n    state_class: \"${st_state_class}\"\n    entity_category: diagnostic\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n    icon: mdi:thermometer\n    update_interval: ${st_update_interval}\n\nbinary_sensor:\n  - platform: template\n    id: st_overtemp_warning\n    name: \"${st_name_prefix}Overtemperature\"\n    device_class: heat\n    entity_category: diagnostic\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n    icon: mdi:thermometer-alert\n    # Return {} while the reading is unknown so we never latch a false alarm on\n    # a NaN; ${st_overtemp_threshold} is a bare number spliced into the compare.\n    lambda: |-\n      if (isnan(id(st_internal_temperature).state)) return {};\n      return id(st_internal_temperature).state > ${st_overtemp_threshold};\n"
+    },
+    {
+      "slug": "last_boot",
+      "title": "Last Boot",
+      "category": "diagnostics",
+      "description": "Publishes the wall-clock timestamp of the last boot as a timestamp sensor. HA renders it as a relative \"last seen\"-style time.",
+      "platforms": [
+        "esp32",
+        "esp32s2",
+        "esp32s3",
+        "esp32c3",
+        "esp32c6"
+      ],
+      "requires": [
+        "time"
+      ],
+      "entities": [
+        {
+          "domain": "sensor",
+          "name": "Last Boot"
+        }
+      ],
+      "vars": [
+        {
+          "name": "st_name_prefix",
+          "default": "",
+          "required": false,
+          "secret": false,
+          "description": "Prefix prepended to the entity name"
+        },
+        {
+          "name": "st_disabled_by_default",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Ship the entity disabled in HA"
+        },
+        {
+          "name": "st_internal",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Hide the entity from HA/web entirely"
+        }
+      ],
+      "notes": [
+        "Needs any time: component (e.g. core/time_sntp.yaml). Publishes once after the clock syncs; there is no update_interval (that only applies to type: seconds) and no state_class (device_class timestamp handles it)."
+      ],
+      "path": "templates/diagnostics/last_boot.yaml",
+      "body": "defaults:\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n\nsensor:\n  - platform: uptime\n    # type: timestamp computes boot wall-clock time once the clock is valid and\n    # republishes only if it drifts; device_class defaults to timestamp - leave it.\n    type: timestamp\n    id: st_last_boot\n    name: \"${st_name_prefix}Last Boot\"\n    device_class: timestamp\n    icon: mdi:clock-start\n    entity_category: diagnostic\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n"
+    },
+    {
+      "slug": "loop_time",
+      "title": "Loop Time",
+      "category": "diagnostics",
+      "description": "Reports the main-loop iteration time from the debug component, in milliseconds. Spikes reveal a component that blocks the loop (slow I2C, long lambdas).",
+      "platforms": [
+        "esp32",
+        "esp32s2",
+        "esp32s3",
+        "esp32c3",
+        "esp32c6"
+      ],
+      "requires": [],
+      "entities": [
+        {
+          "domain": "sensor",
+          "name": "Loop Time"
+        }
+      ],
+      "vars": [
+        {
+          "name": "st_update_interval",
+          "default": "60s",
+          "required": false,
+          "secret": false,
+          "description": "How often the debug hub refreshes loop time"
+        },
+        {
+          "name": "st_name_prefix",
+          "default": "",
+          "required": false,
+          "secret": false,
+          "description": "Prefix prepended to the entity name"
+        },
+        {
+          "name": "st_disabled_by_default",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Ship the entity disabled in HA"
+        },
+        {
+          "name": "st_internal",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Hide the entity from HA/web entirely"
+        },
+        {
+          "name": "st_state_class",
+          "default": "measurement",
+          "required": false,
+          "secret": false,
+          "description": "state_class for the sensor; set \"\" to opt out of HA long-term statistics"
+        }
+      ],
+      "notes": [
+        "Shares the debug: hub with the other debug-based templates; dicts merge across packages and the last update_interval wins."
+      ],
+      "path": "templates/diagnostics/loop_time.yaml",
+      "body": "defaults:\n  st_update_interval: 60s\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n  st_state_class: measurement\n\n# Shared debug hub (merges with other debug-based templates).\ndebug:\n  update_interval: ${st_update_interval}\n\nsensor:\n  - platform: debug\n    # Reported by the debug component as the measured main-loop latency; a\n    # healthy loop stays low, sustained spikes point at a blocking component.\n    loop_time:\n      id: st_loop_time\n      name: \"${st_name_prefix}Loop Time\"\n      unit_of_measurement: ms\n      state_class: \"${st_state_class}\"\n      entity_category: diagnostic\n      disabled_by_default: ${st_disabled_by_default}\n      internal: ${st_internal}\n      icon: mdi:timer-sync-outline\n"
+    },
+    {
+      "slug": "nvs_usage",
+      "title": "NVS Usage",
+      "category": "diagnostics",
+      "description": "Reports NVS entry fill (used/total) and the on-device NVS partition size. Diagnoses ESP_ERR_NVS_NOT_ENOUGH_SPACE before it bites.",
+      "platforms": [
+        "esp32",
+        "esp32s2",
+        "esp32s3",
+        "esp32c3",
+        "esp32c6"
+      ],
+      "requires": [],
+      "entities": [
+        {
+          "domain": "text_sensor",
+          "name": "NVS Usage"
+        }
+      ],
+      "vars": [
+        {
+          "name": "st_update_interval",
+          "default": "60s",
+          "required": false,
+          "secret": false,
+          "description": "How often to poll NVS statistics"
+        },
+        {
+          "name": "st_name_prefix",
+          "default": "",
+          "required": false,
+          "secret": false,
+          "description": "Prefix prepended to the entity name"
+        },
+        {
+          "name": "st_disabled_by_default",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Ship the entity disabled in HA"
+        },
+        {
+          "name": "st_internal",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Hide the entity from HA/web entirely"
+        }
+      ],
+      "notes": [
+        "OTA never updates the partition table. A device first flashed with an old ESPHome may still run a 20 kB NVS even though current ESPHome allocates 448 kB - only a wired flash replaces the table."
+      ],
+      "path": "templates/diagnostics/nvs_usage.yaml",
+      "body": "defaults:\n  st_update_interval: 60s\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n\nesphome:\n  # nvs.h / esp_partition.h are not pulled into main.cpp by any component, so\n  # force-include them for the lambda below. build_src_flags only affects the\n  # project's own src/ (main.cpp), not the framework build, and the list\n  # concatenates cleanly with flags from other templates.\n  platformio_options:\n    build_src_flags:\n      - \"-include nvs.h\"\n      - \"-include esp_partition.h\"\n\ntext_sensor:\n  - platform: template\n    id: st_nvs_usage\n    name: \"${st_name_prefix}NVS Usage\"\n    icon: mdi:database\n    entity_category: diagnostic\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n    update_interval: ${st_update_interval}\n    # nvs_get_stats() covers the default \"nvs\" partition; the partition lookup\n    # reports the size actually flashed to THIS device (see @note above).\n    lambda: |-\n      nvs_stats_t s;\n      if (nvs_get_stats(NULL, &s) != ESP_OK) return {\"unavailable\"};\n      const esp_partition_t *p = esp_partition_find_first(\n          ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_NVS, nullptr);\n      char buf[64];\n      snprintf(buf, sizeof(buf), \"%u/%u entries, %u kB partition\",\n               (unsigned) s.used_entries, (unsigned) s.total_entries,\n               p != nullptr ? (unsigned) (p->size / 1024) : 0);\n      return {std::string(buf)};\n"
+    },
+    {
+      "slug": "psram",
+      "title": "PSRAM Free",
+      "category": "diagnostics",
+      "description": "Reports free PSRAM (SPI RAM) in bytes from the debug component. Confirms that external PSRAM is detected and tracks headroom for buffer-heavy components.",
+      "platforms": [
+        "esp32",
+        "esp32s2",
+        "esp32s3"
+      ],
+      "requires": [
+        "psram"
+      ],
+      "entities": [
+        {
+          "domain": "sensor",
+          "name": "PSRAM Free"
+        }
+      ],
+      "vars": [
+        {
+          "name": "st_update_interval",
+          "default": "60s",
+          "required": false,
+          "secret": false,
+          "description": "How often the debug hub refreshes PSRAM stats"
+        },
+        {
+          "name": "st_name_prefix",
+          "default": "",
+          "required": false,
+          "secret": false,
+          "description": "Prefix prepended to the entity name"
+        },
+        {
+          "name": "st_disabled_by_default",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Ship the entity disabled in HA"
+        },
+        {
+          "name": "st_internal",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Hide the entity from HA/web entirely"
+        },
+        {
+          "name": "st_state_class",
+          "default": "measurement",
+          "required": false,
+          "secret": false,
+          "description": "state_class for the sensor; set \"\" to opt out of HA long-term statistics"
+        }
+      ],
+      "notes": [
+        "ESP32-C3/C6 have no PSRAM interface - this template is limited to esp32/s2/s3. Requires the psram: component configured AND PSRAM hardware present, otherwise the sensor reports 0.",
+        "Shares the debug: hub with the other debug-based templates; dicts merge across packages and the last update_interval wins."
+      ],
+      "path": "templates/diagnostics/psram.yaml",
+      "body": "defaults:\n  st_update_interval: 60s\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n  st_state_class: measurement\n\n# Shared debug hub (merges with other debug-based templates).\ndebug:\n  update_interval: ${st_update_interval}\n\nsensor:\n  - platform: debug\n    # Only populated when the psram: component is configured and the module\n    # actually has SPI RAM - otherwise reports 0.\n    psram:\n      id: st_psram_free\n      name: \"${st_name_prefix}PSRAM Free\"\n      unit_of_measurement: B\n      device_class: data_size\n      state_class: \"${st_state_class}\"\n      entity_category: diagnostic\n      disabled_by_default: ${st_disabled_by_default}\n      internal: ${st_internal}\n      icon: mdi:memory\n"
+    },
+    {
+      "slug": "uptime",
+      "title": "Uptime (seconds)",
+      "category": "diagnostics",
+      "description": "Reports device uptime in seconds as a monotonic counter. The canonical \"is it still up?\" signal for HA availability graphs.",
+      "platforms": [
+        "esp32",
+        "esp32s2",
+        "esp32s3",
+        "esp32c3",
+        "esp32c6"
+      ],
+      "requires": [],
+      "entities": [
+        {
+          "domain": "sensor",
+          "name": "Uptime"
+        }
+      ],
+      "vars": [
+        {
+          "name": "st_update_interval",
+          "default": "60s",
+          "required": false,
+          "secret": false,
+          "description": "How often to publish the uptime value"
+        },
+        {
+          "name": "st_name_prefix",
+          "default": "",
+          "required": false,
+          "secret": false,
+          "description": "Prefix prepended to the entity name"
+        },
+        {
+          "name": "st_disabled_by_default",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Ship the entity disabled in HA"
+        },
+        {
+          "name": "st_internal",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Hide the entity from HA/web entirely"
+        }
+      ],
+      "notes": [
+        "This is a counter - state_class is hardcoded total_increasing and does NOT honor the ${st_state_class} knob."
+      ],
+      "path": "templates/diagnostics/uptime.yaml",
+      "body": "defaults:\n  st_update_interval: 60s\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n\nsensor:\n  - platform: uptime\n    type: seconds\n    id: st_uptime_seconds\n    name: \"${st_name_prefix}Uptime\"\n    device_class: duration\n    # Monotonic counter: total_increasing is semantically required, so it is\n    # hardcoded here rather than driven by the ${st_state_class} knob.\n    state_class: total_increasing\n    unit_of_measurement: s\n    accuracy_decimals: 0\n    icon: mdi:timer-outline\n    entity_category: diagnostic\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n    update_interval: ${st_update_interval}\n"
+    },
+    {
+      "slug": "uptime_text",
+      "title": "Uptime (human-readable)",
+      "category": "diagnostics",
+      "description": "Reports device uptime as a human-readable string (e.g. \"3d 4h 12m 5s\") using the uptime platform's built-in formatting. Nicer to read on a dashboard than raw seconds.",
+      "platforms": [
+        "esp32",
+        "esp32s2",
+        "esp32s3",
+        "esp32c3",
+        "esp32c6"
+      ],
+      "requires": [],
+      "entities": [
+        {
+          "domain": "text_sensor",
+          "name": "Uptime"
+        }
+      ],
+      "vars": [
+        {
+          "name": "st_update_interval",
+          "default": "60s",
+          "required": false,
+          "secret": false,
+          "description": "How often to refresh the formatted string"
+        },
+        {
+          "name": "st_name_prefix",
+          "default": "",
+          "required": false,
+          "secret": false,
+          "description": "Prefix prepended to the entity name"
+        },
+        {
+          "name": "st_disabled_by_default",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Ship the entity disabled in HA"
+        },
+        {
+          "name": "st_internal",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Hide the entity from HA/web entirely"
+        }
+      ],
+      "notes": [
+        "Supersedes the old hand-rolled lambda approach - the uptime text_sensor platform now formats the string natively via the format: block."
+      ],
+      "path": "templates/diagnostics/uptime_text.yaml",
+      "body": "defaults:\n  st_update_interval: 60s\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n\ntext_sensor:\n  - platform: uptime\n    id: st_uptime_text\n    name: \"${st_name_prefix}Uptime\"\n    icon: mdi:timer-outline\n    entity_category: diagnostic\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n    update_interval: ${st_update_interval}\n    # Built-in formatting: separator + per-unit suffixes yield \"3d 4h 12m 5s\".\n    format:\n      separator: \" \"\n      days: \"d\"\n      hours: \"h\"\n      minutes: \"m\"\n      seconds: \"s\"\n"
+    },
+    {
+      "slug": "deep_sleep_control",
+      "title": "HA-Controlled Deep Sleep",
+      "category": "inputs",
+      "description": "The classic Home Assistant-controlled deep sleep pattern. The device sleeps between runs but honors an HA input_boolean that can hold it awake for OTA/config.",
+      "platforms": [
+        "esp32",
+        "esp32s2",
+        "esp32s3",
+        "esp32c3",
+        "esp32c6"
+      ],
+      "requires": [
+        "api",
+        "HA input_boolean helper named by st_prevent_sleep_entity"
+      ],
+      "entities": [],
+      "vars": [
+        {
+          "name": "st_sleep_duration",
+          "default": "10min",
+          "required": false,
+          "secret": false,
+          "description": "How long the device stays asleep between runs"
+        },
+        {
+          "name": "st_run_duration",
+          "default": "60s",
+          "required": false,
+          "secret": false,
+          "description": "How long the device stays awake each run before sleeping"
+        },
+        {
+          "name": "st_prevent_sleep_entity",
+          "default": "input_boolean.prevent_deep_sleep",
+          "required": false,
+          "secret": false,
+          "description": "HA entity that, when ON, prevents sleep"
+        }
+      ],
+      "notes": [
+        "SINGLE-INSTANCE - this file uses fixed ids (st_deep_sleep, st_prevent_sleep). Include it exactly ONCE.",
+        "Requires an active api: connection - the homeassistant binary_sensor platform reads the toggle over the API.",
+        "The device can only see the toggle WHILE AWAKE. Flip the HA input_boolean ON *before* the next wake so the device catches it during its brief run_duration window (that window is your OTA opportunity).",
+        "When the toggle goes back OFF (on_release), deep_sleep.allow re-arms sleep and restarts the run_duration timer, so the device stays awake for a fresh run_duration before sleeping again.",
+        "Create the helper in HA: Settings > Devices & Services > Helpers > Toggle, matching st_prevent_sleep_entity."
+      ],
+      "path": "templates/inputs/deep_sleep_control.yaml",
+      "body": "defaults:\n  st_sleep_duration: 10min\n  st_run_duration: 60s\n  st_prevent_sleep_entity: input_boolean.prevent_deep_sleep\n\ndeep_sleep:\n  id: st_deep_sleep\n  sleep_duration: ${st_sleep_duration}\n  run_duration: ${st_run_duration}\n\nbinary_sensor:\n  # Always internal: this is a control input from HA, not a user-facing entity.\n  - platform: homeassistant\n    id: st_prevent_sleep\n    entity_id: ${st_prevent_sleep_entity}\n    internal: true\n    # Toggle ON in HA -> hold the device awake.\n    on_press:\n      then:\n        - deep_sleep.prevent: st_deep_sleep\n    # Toggle OFF in HA -> re-allow sleep and restart the run_duration timer.\n    on_release:\n      then:\n        - deep_sleep.allow: st_deep_sleep\n"
+    },
+    {
+      "slug": "generic_number",
+      "title": "Generic Number Input",
+      "category": "inputs",
+      "description": "A user-adjustable template number, surfaced in HA as a config control. Use it for thresholds, calibration offsets, setpoints - read the value elsewhere via id(...).state.",
+      "platforms": [
+        "esp32",
+        "esp32s2",
+        "esp32s3",
+        "esp32c3",
+        "esp32c6"
+      ],
+      "requires": [],
+      "entities": [
+        {
+          "domain": "number",
+          "name": "Setpoint"
+        }
+      ],
+      "vars": [
+        {
+          "name": "st_name_prefix",
+          "default": "",
+          "required": false,
+          "secret": false,
+          "description": "Prefix prepended to the entity name"
+        },
+        {
+          "name": "st_disabled_by_default",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Ship the entity disabled in HA"
+        },
+        {
+          "name": "st_internal",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Hide the entity from HA/web entirely"
+        },
+        {
+          "name": "st_number_id",
+          "default": "st_generic_number",
+          "required": false,
+          "secret": false,
+          "description": "Entity id - MUST be overridden on every extra include (see notes)"
+        },
+        {
+          "name": "st_number_name",
+          "default": "Setpoint",
+          "required": false,
+          "secret": false,
+          "description": "Entity name (after st_name_prefix)"
+        },
+        {
+          "name": "st_number_min",
+          "default": "-100",
+          "required": false,
+          "secret": false,
+          "description": "Minimum selectable value"
+        },
+        {
+          "name": "st_number_max",
+          "default": "100",
+          "required": false,
+          "secret": false,
+          "description": "Maximum selectable value"
+        },
+        {
+          "name": "st_number_step",
+          "default": "1",
+          "required": false,
+          "secret": false,
+          "description": "Increment between values"
+        },
+        {
+          "name": "st_number_initial",
+          "default": "0",
+          "required": false,
+          "secret": false,
+          "description": "Value used before anything is restored/set"
+        },
+        {
+          "name": "st_number_unit",
+          "default": "",
+          "required": false,
+          "secret": false,
+          "description": "Unit of measurement shown in HA (e.g. \"C\", \"%\")"
+        },
+        {
+          "name": "st_number_mode",
+          "default": "box",
+          "required": false,
+          "secret": false,
+          "description": "UI mode - box, slider, or auto"
+        },
+        {
+          "name": "st_number_restore",
+          "default": "true",
+          "required": false,
+          "secret": false,
+          "description": "Persist the value across reboots (C++ literal \"true\"/\"false\")"
+        }
+      ],
+      "notes": [
+        "MULTI-INSTANCE - include this file more than once to get several numbers. Each extra include MUST override BOTH st_number_id AND st_number_name; duplicate ids are a hard \"ID redefined!\" compile error.",
+        "On a template number, restore_value is INCOMPATIBLE with a lambda, so this template uses optimistic:true (the entity holds its own state) and no lambda.",
+        "restore_value:true writes to NVS on every change (one flash write per change). NVS flash has limited write endurance - leave it \"false\" for values that change very often."
+      ],
+      "path": "templates/inputs/generic_number.yaml",
+      "body": "defaults:\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n  st_number_id: st_generic_number\n  st_number_name: \"Setpoint\"\n  st_number_min: \"-100\"\n  st_number_max: \"100\"\n  st_number_step: \"1\"\n  st_number_initial: \"0\"\n  st_number_unit: \"\"\n  st_number_mode: box\n  st_number_restore: \"true\"\n\nnumber:\n  - platform: template\n    # The id itself is a var so the file can be included multiple times.\n    id: ${st_number_id}\n    name: \"${st_name_prefix}${st_number_name}\"\n    min_value: ${st_number_min}\n    max_value: ${st_number_max}\n    step: ${st_number_step}\n    initial_value: ${st_number_initial}\n    unit_of_measurement: \"${st_number_unit}\"\n    mode: ${st_number_mode}\n    # optimistic + no lambda: the component stores its own state.\n    optimistic: true\n    restore_value: ${st_number_restore}\n    entity_category: config\n    icon: mdi:tune\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n"
+    },
+    {
+      "slug": "generic_select",
+      "title": "Generic Select Input",
+      "category": "inputs",
+      "description": "A user-adjustable template select (dropdown), surfaced in HA as a config control. Use it to pick a mode/profile and read the choice elsewhere via id(...).state.",
+      "platforms": [
+        "esp32",
+        "esp32s2",
+        "esp32s3",
+        "esp32c3",
+        "esp32c6"
+      ],
+      "requires": [],
+      "entities": [
+        {
+          "domain": "select",
+          "name": "Mode"
+        }
+      ],
+      "vars": [
+        {
+          "name": "st_name_prefix",
+          "default": "",
+          "required": false,
+          "secret": false,
+          "description": "Prefix prepended to the entity name"
+        },
+        {
+          "name": "st_disabled_by_default",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Ship the entity disabled in HA"
+        },
+        {
+          "name": "st_internal",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Hide the entity from HA/web entirely"
+        },
+        {
+          "name": "st_select_id",
+          "default": "st_generic_select",
+          "required": false,
+          "secret": false,
+          "description": "Entity id - MUST be overridden on every extra include (see notes)"
+        },
+        {
+          "name": "st_select_name",
+          "default": "Mode",
+          "required": false,
+          "secret": false,
+          "description": "Entity name (after st_name_prefix)"
+        },
+        {
+          "name": "st_select_options",
+          "default": "[\"Option A\", \"Option B\"]",
+          "required": false,
+          "secret": false,
+          "description": "List of options - pass a YAML list in vars:"
+        },
+        {
+          "name": "st_select_initial",
+          "default": "Option A",
+          "required": false,
+          "secret": false,
+          "description": "Option selected before anything is restored/set"
+        },
+        {
+          "name": "st_select_restore",
+          "default": "true",
+          "required": false,
+          "secret": false,
+          "description": "Persist the selection across reboots (C++ literal \"true\"/\"false\")"
+        }
+      ],
+      "notes": [
+        "MULTI-INSTANCE - include this file more than once to get several selects. Each extra include MUST override BOTH st_select_id AND st_select_name; duplicate ids are a hard \"ID redefined!\" compile error.",
+        "st_select_options is a LIST-valued substitution. Pass it exactly like any other var, but as a YAML list, e.g. vars: { st_select_options: [\"Eco\", \"Comfort\", \"Boost\"] }.",
+        "st_select_initial MUST be one of st_select_options, otherwise config validation fails.",
+        "On a template select, restore_value is INCOMPATIBLE with a lambda, so this template uses optimistic:true (the entity holds its own state) and no lambda.",
+        "restore_value:true writes to NVS on every change (one flash write per change) - NVS flash has limited write endurance."
+      ],
+      "path": "templates/inputs/generic_select.yaml",
+      "body": "defaults:\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n  st_select_id: st_generic_select\n  st_select_name: \"Mode\"\n  # List-valued substitution: users override by passing their own YAML list.\n  st_select_options:\n    - \"Option A\"\n    - \"Option B\"\n  st_select_initial: \"Option A\"\n  st_select_restore: \"true\"\n\nselect:\n  - platform: template\n    # The id itself is a var so the file can be included multiple times.\n    id: ${st_select_id}\n    name: \"${st_name_prefix}${st_select_name}\"\n    options: ${st_select_options}\n    initial_option: \"${st_select_initial}\"\n    # optimistic + no lambda: the component stores its own state.\n    optimistic: true\n    restore_value: ${st_select_restore}\n    entity_category: config\n    icon: mdi:form-dropdown\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n"
+    },
+    {
+      "slug": "generic_switch",
+      "title": "Generic Switch (virtual flag)",
+      "category": "inputs",
+      "description": "A virtual template switch, surfaced in HA as a config control. Use it as an on/off flag to gate automations - read it via id(...).state or attach actions with !extend.",
+      "platforms": [
+        "esp32",
+        "esp32s2",
+        "esp32s3",
+        "esp32c3",
+        "esp32c6"
+      ],
+      "requires": [],
+      "entities": [
+        {
+          "domain": "switch",
+          "name": "Flag"
+        }
+      ],
+      "vars": [
+        {
+          "name": "st_name_prefix",
+          "default": "",
+          "required": false,
+          "secret": false,
+          "description": "Prefix prepended to the entity name"
+        },
+        {
+          "name": "st_disabled_by_default",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Ship the entity disabled in HA"
+        },
+        {
+          "name": "st_internal",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Hide the entity from HA/web entirely"
+        },
+        {
+          "name": "st_switch_id",
+          "default": "st_generic_switch",
+          "required": false,
+          "secret": false,
+          "description": "Entity id - MUST be overridden on every extra include (see notes)"
+        },
+        {
+          "name": "st_switch_name",
+          "default": "Flag",
+          "required": false,
+          "secret": false,
+          "description": "Entity name (after st_name_prefix)"
+        },
+        {
+          "name": "st_switch_restore_mode",
+          "default": "RESTORE_DEFAULT_OFF",
+          "required": false,
+          "secret": false,
+          "description": "Boot behavior - see enum in notes"
+        }
+      ],
+      "notes": [
+        "MULTI-INSTANCE - include this file more than once to get several switches. Each extra include MUST override BOTH st_switch_id AND st_switch_name; duplicate ids are a hard \"ID redefined!\" compile error.",
+        "restore_mode enum: RESTORE_DEFAULT_OFF, RESTORE_DEFAULT_ON, ALWAYS_OFF, ALWAYS_ON, RESTORE_INVERTED_DEFAULT_OFF, RESTORE_INVERTED_DEFAULT_ON, DISABLED. RESTORE_* variants read the last state from NVS (one flash write per change); ALWAYS_* never persist.",
+        "This is a virtual flag - it drives nothing on its own. Read id(st_generic_switch).state in a lambda, or attach on_turn_on/on_turn_off actions via \"switch: - id: !extend st_generic_switch\"."
+      ],
+      "path": "templates/inputs/generic_switch.yaml",
+      "body": "defaults:\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n  st_switch_id: st_generic_switch\n  st_switch_name: \"Flag\"\n  st_switch_restore_mode: RESTORE_DEFAULT_OFF\n\nswitch:\n  - platform: template\n    # The id itself is a var so the file can be included multiple times.\n    id: ${st_switch_id}\n    name: \"${st_name_prefix}${st_switch_name}\"\n    # optimistic: the switch tracks its own commanded state (no output to drive).\n    optimistic: true\n    restore_mode: ${st_switch_restore_mode}\n    entity_category: config\n    icon: mdi:toggle-switch-outline\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n"
+    },
+    {
+      "slug": "generic_text",
+      "title": "Generic Text Input",
+      "category": "inputs",
+      "description": "A user-editable template text field, surfaced in HA as a config control. Use it for free-form notes, labels, or short config strings - read it via id(...).state.",
+      "platforms": [
+        "esp32",
+        "esp32s2",
+        "esp32s3",
+        "esp32c3",
+        "esp32c6"
+      ],
+      "requires": [],
+      "entities": [
+        {
+          "domain": "text",
+          "name": "Note"
+        }
+      ],
+      "vars": [
+        {
+          "name": "st_name_prefix",
+          "default": "",
+          "required": false,
+          "secret": false,
+          "description": "Prefix prepended to the entity name"
+        },
+        {
+          "name": "st_disabled_by_default",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Ship the entity disabled in HA"
+        },
+        {
+          "name": "st_internal",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Hide the entity from HA/web entirely"
+        },
+        {
+          "name": "st_text_id",
+          "default": "st_generic_text",
+          "required": false,
+          "secret": false,
+          "description": "Entity id - MUST be overridden on every extra include (see notes)"
+        },
+        {
+          "name": "st_text_name",
+          "default": "Note",
+          "required": false,
+          "secret": false,
+          "description": "Entity name (after st_name_prefix)"
+        },
+        {
+          "name": "st_text_max_length",
+          "default": "64",
+          "required": false,
+          "secret": false,
+          "description": "Maximum number of characters allowed"
+        },
+        {
+          "name": "st_text_restore",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Persist the text across reboots (C++ literal \"true\"/\"false\")"
+        }
+      ],
+      "notes": [
+        "MULTI-INSTANCE - include this file more than once to get several text fields. Each extra include MUST override BOTH st_text_id AND st_text_name; duplicate ids are a hard \"ID redefined!\" compile error.",
+        "On a template text, restore_value is INCOMPATIBLE with a lambda, so this template uses optimistic:true (the entity holds its own state) and no lambda.",
+        "Text values eat NVS space (a whole string per write, one flash write per change), so restore_value defaults to \"false\" here. Turn it \"true\" only when persistence is genuinely needed."
+      ],
+      "path": "templates/inputs/generic_text.yaml",
+      "body": "defaults:\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n  st_text_id: st_generic_text\n  st_text_name: \"Note\"\n  st_text_max_length: \"64\"\n  st_text_restore: \"false\"\n\ntext:\n  - platform: template\n    # The id itself is a var so the file can be included multiple times.\n    id: ${st_text_id}\n    name: \"${st_name_prefix}${st_text_name}\"\n    mode: text\n    # optimistic + no lambda: the component stores its own state.\n    optimistic: true\n    restore_value: ${st_text_restore}\n    min_length: 0\n    max_length: ${st_text_max_length}\n    entity_category: config\n    icon: mdi:form-textbox\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n"
+    },
+    {
+      "slug": "connectivity_watchdog",
+      "title": "Connectivity Watchdog",
+      "category": "network",
+      "description": "Config preset that sets the WiFi reboot_timeout, so the device restarts itself if it cannot stay associated to WiFi. Exposes no entities.",
+      "platforms": [
+        "esp32",
+        "esp32s2",
+        "esp32s3",
+        "esp32c3",
+        "esp32c6"
+      ],
+      "requires": [
+        "wifi"
+      ],
+      "entities": [],
+      "vars": [
+        {
+          "name": "st_wifi_reboot_timeout",
+          "default": "15min",
+          "required": false,
+          "secret": false,
+          "description": "How long WiFi may stay disconnected before the device reboots (0s disables the watchdog)"
+        }
+      ],
+      "notes": [
+        "This is built-in ESPHome behavior - the device restarts if WiFi association is lost for the whole window. This file just makes the knob explicit and overridable.",
+        "Merge caveat - if the user's own wifi: block also sets reboot_timeout, the main config's value wins over this package."
+      ],
+      "path": "templates/network/connectivity_watchdog.yaml",
+      "body": "defaults:\n  st_wifi_reboot_timeout: 15min\n\nwifi:\n  reboot_timeout: ${st_wifi_reboot_timeout}\n"
+    },
+    {
+      "slug": "ha_status",
+      "title": "Home Assistant Connected",
+      "category": "network",
+      "description": "Binary sensor that reports whether the device currently has a live connection to Home Assistant (native API or MQTT).",
+      "platforms": [
+        "esp32",
+        "esp32s2",
+        "esp32s3",
+        "esp32c3",
+        "esp32c6"
+      ],
+      "requires": [
+        "api"
+      ],
+      "entities": [
+        {
+          "domain": "binary_sensor",
+          "name": "Connected"
+        }
+      ],
+      "vars": [
+        {
+          "name": "st_name_prefix",
+          "default": "",
+          "required": false,
+          "secret": false,
+          "description": "Prefix prepended to the entity name"
+        },
+        {
+          "name": "st_disabled_by_default",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Ship the entity disabled in HA"
+        },
+        {
+          "name": "st_internal",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Hide the entity from HA/web entirely"
+        }
+      ],
+      "notes": [
+        "Reports native-API/MQTT connection state (HA reachability), not raw WiFi association - it complements wifi_signal rather than duplicating it.",
+        "No update_interval var - the status component polls its connection internally (1s); that cadence is by design and not tunable here."
+      ],
+      "path": "templates/network/ha_status.yaml",
+      "body": "defaults:\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n\nbinary_sensor:\n  - platform: status\n    id: st_ha_status\n    name: \"${st_name_prefix}Connected\"\n    device_class: connectivity\n    entity_category: diagnostic\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n"
+    },
+    {
+      "slug": "wifi_channel",
+      "title": "WiFi Channel",
+      "category": "network",
+      "description": "Reports the primary WiFi channel the device is currently associated on, read directly from the ESP-IDF station driver.",
+      "platforms": [
+        "esp32",
+        "esp32s2",
+        "esp32s3",
+        "esp32c3",
+        "esp32c6"
+      ],
+      "requires": [
+        "wifi"
+      ],
+      "entities": [
+        {
+          "domain": "sensor",
+          "name": "WiFi Channel"
+        }
+      ],
+      "vars": [
+        {
+          "name": "st_update_interval",
+          "default": "60s",
+          "required": false,
+          "secret": false,
+          "description": "How often to read the current channel"
+        },
+        {
+          "name": "st_name_prefix",
+          "default": "",
+          "required": false,
+          "secret": false,
+          "description": "Prefix prepended to the entity name"
+        },
+        {
+          "name": "st_disabled_by_default",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Ship the entity disabled in HA"
+        },
+        {
+          "name": "st_internal",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Hide the entity from HA/web entirely"
+        }
+      ],
+      "notes": [
+        "A channel number is not a measurement, so state_class is intentionally omitted (st_state_class does not apply).",
+        "Uses esp_wifi_sta_get_ap_info directly (ESP-IDF). esp_wifi.h is NOT in scope in ESPHome lambdas by default, so this file force-includes it into main.cpp via platformio_options build_src_flags (project sources only - the framework build is untouched).",
+        "Returns NAN (state unknown) when the device is not associated."
+      ],
+      "path": "templates/network/wifi_channel.yaml",
+      "body": "defaults:\n  st_update_interval: 60s\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n\nesphome:\n  # esp_wifi.h is not included in main.cpp by any component, so force-include\n  # it for the lambda below. build_src_flags only affects the project's own\n  # src/ (main.cpp) and the list concatenates with flags from other templates.\n  platformio_options:\n    build_src_flags:\n      - \"-include esp_wifi.h\"\n\nsensor:\n  - platform: template\n    id: st_wifi_channel\n    name: \"${st_name_prefix}WiFi Channel\"\n    icon: mdi:wifi-settings\n    accuracy_decimals: 0\n    entity_category: diagnostic\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n    update_interval: ${st_update_interval}\n    lambda: |-\n      wifi_ap_record_t info;\n      if (esp_wifi_sta_get_ap_info(&info) != ESP_OK) return NAN;\n      return info.primary;\n"
+    },
+    {
+      "slug": "wifi_disconnect_counter",
+      "title": "WiFi Disconnect Counter",
+      "category": "network",
+      "description": "Counts WiFi disconnect events since boot and exposes the running total as a sensor.",
+      "platforms": [
+        "esp32",
+        "esp32s2",
+        "esp32s3",
+        "esp32c3",
+        "esp32c6"
+      ],
+      "requires": [
+        "wifi"
+      ],
+      "entities": [
+        {
+          "domain": "sensor",
+          "name": "WiFi Disconnects"
+        }
+      ],
+      "vars": [
+        {
+          "name": "st_update_interval",
+          "default": "60s",
+          "required": false,
+          "secret": false,
+          "description": "How often to publish the current disconnect count"
+        },
+        {
+          "name": "st_name_prefix",
+          "default": "",
+          "required": false,
+          "secret": false,
+          "description": "Prefix prepended to the entity name"
+        },
+        {
+          "name": "st_disabled_by_default",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Ship the entity disabled in HA"
+        },
+        {
+          "name": "st_internal",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Hide the entity from HA/web entirely"
+        }
+      ],
+      "notes": [
+        "state_class is hardcoded total_increasing (a counter), so st_state_class does not apply here.",
+        "This file's wifi: block merges into the user's wifi config - on_disconnect lists concatenate, so the user's own on_disconnect still runs.",
+        "Counts since boot; restore_value is false to avoid NVS wear. For a lifetime count across reboots, `!extend st_wifi_disconnects_value` and set restore_value: true."
+      ],
+      "path": "templates/network/wifi_disconnect_counter.yaml",
+      "body": "defaults:\n  st_update_interval: 60s\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n\nglobals:\n  - id: st_wifi_disconnects_value\n    type: int\n    restore_value: false\n    initial_value: \"0\"\n\nwifi:\n  on_disconnect:\n    then:\n      - lambda: 'id(st_wifi_disconnects_value) += 1;'\n\nsensor:\n  - platform: template\n    id: st_wifi_disconnects\n    name: \"${st_name_prefix}WiFi Disconnects\"\n    icon: mdi:wifi-off\n    accuracy_decimals: 0\n    state_class: total_increasing\n    entity_category: diagnostic\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n    update_interval: ${st_update_interval}\n    lambda: return id(st_wifi_disconnects_value);\n"
+    },
+    {
+      "slug": "wifi_info",
+      "title": "WiFi Info",
+      "category": "network",
+      "description": "Exposes the device's current WiFi/network identity - IP address, SSID, BSSID, MAC address and DNS - as text sensors.",
+      "platforms": [
+        "esp32",
+        "esp32s2",
+        "esp32s3",
+        "esp32c3",
+        "esp32c6"
+      ],
+      "requires": [
+        "wifi"
+      ],
+      "entities": [
+        {
+          "domain": "text_sensor",
+          "name": "IP Address"
+        },
+        {
+          "domain": "text_sensor",
+          "name": "SSID"
+        },
+        {
+          "domain": "text_sensor",
+          "name": "BSSID"
+        },
+        {
+          "domain": "text_sensor",
+          "name": "MAC Address"
+        },
+        {
+          "domain": "text_sensor",
+          "name": "DNS Address"
+        }
+      ],
+      "vars": [
+        {
+          "name": "st_name_prefix",
+          "default": "",
+          "required": false,
+          "secret": false,
+          "description": "Prefix prepended to every entity name"
+        },
+        {
+          "name": "st_disabled_by_default",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Ship the entities disabled in HA"
+        },
+        {
+          "name": "st_internal",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Hide the entities from HA/web entirely"
+        }
+      ],
+      "notes": [
+        "wifi_info is event-driven (values refresh on association change), so there is no update_interval to tune.",
+        "scan_results is deliberately omitted - it is expensive. Add it with `!extend st_wifi_info_ip` ... or a separate wifi_info block if you need it."
+      ],
+      "path": "templates/network/wifi_info.yaml",
+      "body": "defaults:\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n\ntext_sensor:\n  - platform: wifi_info\n    ip_address:\n      id: st_wifi_info_ip\n      name: \"${st_name_prefix}IP Address\"\n      entity_category: diagnostic\n      disabled_by_default: ${st_disabled_by_default}\n      internal: ${st_internal}\n    ssid:\n      id: st_wifi_info_ssid\n      name: \"${st_name_prefix}SSID\"\n      entity_category: diagnostic\n      disabled_by_default: ${st_disabled_by_default}\n      internal: ${st_internal}\n    bssid:\n      id: st_wifi_info_bssid\n      name: \"${st_name_prefix}BSSID\"\n      entity_category: diagnostic\n      disabled_by_default: ${st_disabled_by_default}\n      internal: ${st_internal}\n    mac_address:\n      id: st_wifi_info_mac\n      name: \"${st_name_prefix}MAC Address\"\n      entity_category: diagnostic\n      disabled_by_default: ${st_disabled_by_default}\n      internal: ${st_internal}\n    dns_address:\n      id: st_wifi_info_dns\n      name: \"${st_name_prefix}DNS Address\"\n      entity_category: diagnostic\n      disabled_by_default: ${st_disabled_by_default}\n      internal: ${st_internal}\n"
+    },
+    {
+      "slug": "wifi_quality",
+      "title": "WiFi Quality (plain language)",
+      "category": "network",
+      "description": "Translates RSSI into a plain-language rating (Excellent/Good/Fair/Poor/Very Poor). Carries its own internal RSSI source, so it works standalone.",
+      "platforms": [
+        "esp32",
+        "esp32s2",
+        "esp32s3",
+        "esp32c3",
+        "esp32c6"
+      ],
+      "requires": [
+        "wifi"
+      ],
+      "entities": [
+        {
+          "domain": "text_sensor",
+          "name": "WiFi Quality"
+        }
+      ],
+      "vars": [
+        {
+          "name": "st_update_interval",
+          "default": "30s",
+          "required": false,
+          "secret": false,
+          "description": "How often to sample RSSI and refresh the rating"
+        },
+        {
+          "name": "st_name_prefix",
+          "default": "",
+          "required": false,
+          "secret": false,
+          "description": "Prefix prepended to the entity name"
+        },
+        {
+          "name": "st_disabled_by_default",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Ship the entity disabled in HA"
+        },
+        {
+          "name": "st_internal",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Hide the entity from HA/web entirely"
+        }
+      ],
+      "notes": [
+        "Includes a hidden wifi_signal sensor (st_wifi_quality_rssi). Including wifi_signal.yaml as well adds a second, independent RSSI read - harmless, but the dBm entity lives there."
+      ],
+      "path": "templates/network/wifi_quality.yaml",
+      "body": "defaults:\n  st_update_interval: 30s\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n\nsensor:\n  # Hidden RSSI source so this file never depends on another template's id.\n  - platform: wifi_signal\n    id: st_wifi_quality_rssi\n    internal: true\n    update_interval: ${st_update_interval}\n\ntext_sensor:\n  - platform: template\n    id: st_wifi_quality\n    name: \"${st_name_prefix}WiFi Quality\"\n    icon: mdi:wifi\n    entity_category: diagnostic\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n    update_interval: ${st_update_interval}\n    lambda: |-\n      float dbm = id(st_wifi_quality_rssi).state;\n      if (isnan(dbm))  return {\"Unknown\"};\n      if (dbm > -50)   return {\"Excellent\"};\n      if (dbm > -60)   return {\"Good\"};\n      if (dbm > -70)   return {\"Fair\"};\n      if (dbm > -80)   return {\"Poor\"};\n      return {\"Very Poor\"};\n"
+    },
+    {
+      "slug": "wifi_signal",
+      "title": "WiFi Signal Strength",
+      "category": "network",
+      "description": "Reports WiFi RSSI in dBm and a derived signal-quality percentage. The two entities are coupled - the % is a copy of the dBm reading.",
+      "platforms": [
+        "esp32",
+        "esp32s2",
+        "esp32s3",
+        "esp32c3",
+        "esp32c6"
+      ],
+      "requires": [
+        "wifi"
+      ],
+      "entities": [
+        {
+          "domain": "sensor",
+          "name": "WiFi Signal dBm"
+        },
+        {
+          "domain": "sensor",
+          "name": "WiFi Signal %"
+        }
+      ],
+      "vars": [
+        {
+          "name": "st_update_interval",
+          "default": "60s",
+          "required": false,
+          "secret": false,
+          "description": "How often to sample RSSI"
+        },
+        {
+          "name": "st_name_prefix",
+          "default": "",
+          "required": false,
+          "secret": false,
+          "description": "Prefix prepended to every entity name"
+        },
+        {
+          "name": "st_disabled_by_default",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Ship the entities disabled in HA"
+        },
+        {
+          "name": "st_internal",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Hide the entities from HA/web entirely"
+        },
+        {
+          "name": "st_state_class",
+          "default": "measurement",
+          "required": false,
+          "secret": false,
+          "description": "state_class for both entities; set \"\" to opt out of HA long-term statistics"
+        }
+      ],
+      "notes": [
+        "The % is 2*(x+100) clamped to 0..100 - the conventional community approximation, NOT a calibrated RSSI-to-quality mapping."
+      ],
+      "path": "templates/network/wifi_signal.yaml",
+      "body": "defaults:\n  st_update_interval: 60s\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n  st_state_class: measurement\n\nsensor:\n  - platform: wifi_signal\n    id: st_wifi_signal_dbm\n    name: \"${st_name_prefix}WiFi Signal dBm\"\n    device_class: signal_strength\n    unit_of_measurement: dBm\n    entity_category: diagnostic\n    state_class: \"${st_state_class}\"\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n    update_interval: ${st_update_interval}\n\n  # Derived percentage. copy inherits device_class signal_strength from the\n  # source, so clear it explicitly - a percentage is not a dBm reading.\n  - platform: copy\n    source_id: st_wifi_signal_dbm\n    id: st_wifi_signal_percent\n    name: \"${st_name_prefix}WiFi Signal %\"\n    unit_of_measurement: \"%\"\n    icon: mdi:wifi\n    device_class: \"\"\n    entity_category: diagnostic\n    state_class: \"${st_state_class}\"\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n    filters:\n      - lambda: return min(max(2 * (x + 100.0), 0.0), 100.0);\n"
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+# Minimal example: one device, three template includes, one per-sensor override,
+# one global override. Validate with:  esphome config examples/minimal.yaml
+esphome:
+  name: sensor-templates-minimal
+  friendly_name: Sensor Templates Minimal
+
+esp32:
+  board: esp32-c3-devkitm-1
+  framework:
+    type: esp-idf
+
+logger:
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+substitutions:
+  # Global override example: every included template refreshes at this rate
+  # unless a per-include vars: block says otherwise.
+  st_update_interval: 120s
+
+packages:
+  nvs_usage: !include ../templates/diagnostics/nvs_usage.yaml
+  time: !include ../templates/core/time_sntp.yaml
+  wifi_quality: !include
+    file: ../templates/network/wifi_quality.yaml
+    vars:
+      st_update_interval: 30s   # per-sensor override beats the global one

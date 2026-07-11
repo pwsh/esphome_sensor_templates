@@ -1,0 +1,23 @@
+# @template: safe_mode
+# @title: Safe Mode
+# @category: core
+# @description: Tunes the boot-loop recovery safe_mode: after repeated crash-boots the device stops applying its config so an OTA fix can land.
+# @platforms: esp32, esp32s2, esp32s3, esp32c3, esp32c6
+# @requires: none
+# @entities: none (recovery preset only)
+# @var st_safe_mode_attempts [10]: Consecutive failed boots before entering safe mode
+# @var st_safe_mode_reboot_timeout [5min]: How long to wait in safe mode for an OTA before rebooting to retry
+# @var st_safe_mode_boot_good_after [1min]: Uptime after which a boot counts as successful and the attempt counter resets
+# @note: Required by the safe_mode button/switch platforms. safe_mode is auto-enabled anyway whenever ota: is present - this preset just tunes its thresholds.
+
+defaults:
+  st_safe_mode_attempts: "10"
+  st_safe_mode_reboot_timeout: 5min
+  st_safe_mode_boot_good_after: 1min
+
+safe_mode:
+  num_attempts: ${st_safe_mode_attempts}
+  reboot_timeout: ${st_safe_mode_reboot_timeout}
+  boot_is_good_after: ${st_safe_mode_boot_good_after}
+  on_safe_mode:
+    - logger.log: "Safe mode activated"

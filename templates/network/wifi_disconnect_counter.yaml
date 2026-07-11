@@ -1,0 +1,44 @@
+# @template: wifi_disconnect_counter
+# @title: WiFi Disconnect Counter
+# @category: network
+# @description: Counts WiFi disconnect events since boot and exposes the running total as a sensor.
+# @platforms: esp32, esp32s2, esp32s3, esp32c3, esp32c6
+# @requires: wifi
+# @entities: sensor "WiFi Disconnects"
+# @var st_update_interval [60s]: How often to publish the current disconnect count
+# @var st_name_prefix []: Prefix prepended to the entity name
+# @var st_disabled_by_default [false]: Ship the entity disabled in HA
+# @var st_internal [false]: Hide the entity from HA/web entirely
+# @note: state_class is hardcoded total_increasing (a counter), so st_state_class does not apply here.
+# @note: This file's wifi: block merges into the user's wifi config - on_disconnect lists concatenate, so the user's own on_disconnect still runs.
+# @note: Counts since boot; restore_value is false to avoid NVS wear. For a lifetime count across reboots, `!extend st_wifi_disconnects_value` and set restore_value: true.
+
+defaults:
+  st_update_interval: 60s
+  st_name_prefix: ""
+  st_disabled_by_default: "false"
+  st_internal: "false"
+
+globals:
+  - id: st_wifi_disconnects_value
+    type: int
+    restore_value: false
+    initial_value: "0"
+
+wifi:
+  on_disconnect:
+    then:
+      - lambda: 'id(st_wifi_disconnects_value) += 1;'
+
+sensor:
+  - platform: template
+    id: st_wifi_disconnects
+    name: "${st_name_prefix}WiFi Disconnects"
+    icon: mdi:wifi-off
+    accuracy_decimals: 0
+    state_class: total_increasing
+    entity_category: diagnostic
+    disabled_by_default: ${st_disabled_by_default}
+    internal: ${st_internal}
+    update_interval: ${st_update_interval}
+    lambda: return id(st_wifi_disconnects_value);

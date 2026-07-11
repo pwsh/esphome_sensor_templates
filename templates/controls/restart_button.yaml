@@ -1,0 +1,26 @@
+# @template: restart_button
+# @title: Restart Button
+# @category: controls
+# @description: Exposes a button in HA/web that soft-reboots the device (equivalent to a normal power cycle, config is re-applied).
+# @platforms: esp32, esp32s2, esp32s3, esp32c3, esp32c6
+# @requires: none
+# @entities: button "Restart"
+# @var st_name_prefix []: Prefix prepended to the entity name
+# @var st_disabled_by_default [false]: Ship the entity disabled in HA
+# @var st_internal [false]: Hide the entity from HA/web entirely
+# @note: A plain restart re-applies the full config on next boot; use safe_mode_button.yaml instead if a broken config is preventing a normal boot.
+
+defaults:
+  st_name_prefix: ""
+  st_disabled_by_default: "false"
+  st_internal: "false"
+
+button:
+  - platform: restart
+    id: st_restart_button
+    name: "${st_name_prefix}Restart"
+    entity_category: config
+    icon: mdi:restart
+    device_class: restart
+    disabled_by_default: ${st_disabled_by_default}
+    internal: ${st_internal}

@@ -1,0 +1,29 @@
+# @template: esphome_version
+# @title: ESPHome Version
+# @category: diagnostics
+# @description: Publishes the ESPHome version the firmware was built with via the version text_sensor platform. Handy for spotting devices that missed an OTA.
+# @platforms: esp32, esp32s2, esp32s3, esp32c3, esp32c6
+# @requires: none
+# @entities: text_sensor "ESPHome Version"
+# @var st_name_prefix []: Prefix prepended to the entity name
+# @var st_disabled_by_default [false]: Ship the entity disabled in HA
+# @var st_internal [false]: Hide the entity from HA/web entirely
+# @var st_version_hide_timestamp [false]: "true" drops the compile timestamp and shows just the version string (C++ literal)
+# @note: The value is fixed at compile time, so it only changes on a rebuild/OTA.
+
+defaults:
+  st_name_prefix: ""
+  st_disabled_by_default: "false"
+  st_internal: "false"
+  st_version_hide_timestamp: "false"
+
+text_sensor:
+  - platform: version
+    id: st_esphome_version
+    name: "${st_name_prefix}ESPHome Version"
+    icon: mdi:chip
+    entity_category: diagnostic
+    disabled_by_default: ${st_disabled_by_default}
+    internal: ${st_internal}
+    # true = show just the version, false = append the build timestamp.
+    hide_timestamp: ${st_version_hide_timestamp}

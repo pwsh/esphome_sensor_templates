@@ -1,0 +1,47 @@
+# @template: boot_counter
+# @title: Boot Counter
+# @category: diagnostics
+# @description: Counts device boots in an NVS-backed global and publishes the running total. Rising counts between expected reboots point at brown-outs, watchdog resets, or crashes.
+# @platforms: esp32, esp32s2, esp32s3, esp32c3, esp32c6
+# @requires: none
+# @entities: sensor "Boot Count"
+# @var st_name_prefix []: Prefix prepended to the entity name
+# @var st_disabled_by_default [false]: Ship the entity disabled in HA
+# @var st_internal [false]: Hide the entity from HA/web entirely
+# @note: One NVS write per boot (restore_value) - negligible flash wear. The count survives reboots and OTA but NOT a factory_reset or a wired flash-erase.
+# @note: This is a counter - state_class is hardcoded total_increasing and does NOT honor the ${st_state_class} knob. There is no update_interval: the value is published once from on_boot.
+
+defaults:
+  st_name_prefix: ""
+  st_disabled_by_default: "false"
+  st_internal: "false"
+
+# NVS-backed counter. restore_value persists it across reboots/OTA.
+globals:
+  - id: st_boot_counter_value
+    type: int
+    restore_value: true
+    initial_value: "0"
+
+esphome:
+  on_boot:
+    # priority 600 runs early, before Wi-Fi/API, so the count is ready to publish.
+    - priority: 600
+      then:
+        - lambda: |-
+            id(st_boot_counter_value) += 1;
+            id(st_boot_counter).publish_state(id(st_boot_counter_value));
+
+sensor:
+  - platform: template
+    id: st_boot_counter
+    name: "${st_name_prefix}Boot Count"
+    # Published only from on_boot; never polled.
+    update_interval: never
+    accuracy_decimals: 0
+    # Monotonic counter: total_increasing is required, hardcoded (no knob).
+    state_class: total_increasing
+    icon: mdi:counter
+    entity_category: diagnostic
+    disabled_by_default: ${st_disabled_by_default}
+    internal: ${st_internal}

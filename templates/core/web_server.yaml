@@ -1,0 +1,42 @@
+# @template: web_server
+# @title: Web Server
+# @category: core
+# @description: Built-in web UI (v3) with HTTP basic auth and a boot-time gate that can disable auth without editing the config. Keeps the device usable standalone when Home Assistant is down.
+# @platforms: esp32, esp32s2, esp32s3, esp32c3, esp32c6
+# @requires: wifi
+# @entities: none (web UI preset only)
+# @var st_web_include_internal [true]: Show internal: entities in the web UI too (C++ bool literal)
+# @var st_web_username [admin]: HTTP basic auth username; MUST NOT be empty (see note)
+# @var st_web_password [(required)]: HTTP basic auth password; pass via vars: { st_web_password: !secret web_password }
+# @var st_web_auth [true]: Enable auth at boot - must be exactly "true" or "false", substituted as a C++ bool literal
+# @note: st_web_auth is injected raw into a lambda as a C++ bool literal, so it MUST be exactly "true" or "false" - not "1", "yes", or "True".
+# @note: WebServerBase::add_handler only wraps handlers in auth middleware when credentials are non-empty AT REGISTRATION TIME. web_server registers its handlers in setup() at priority ~249 (WIFI-1), so clearing the credentials in on_boot at priority 600 (which runs earlier) disables auth for the whole boot.
+# @note: st_web_username must NOT be empty - web_server_idf's authenticate() FAILS OPEN on an empty username (returns true for every request), silently disabling auth. Password-only auth is therefore not possible.
+
+defaults:
+  st_web_include_internal: "true"
+  st_web_username: "admin"
+  st_web_auth: "true"
+
+esphome:
+  on_boot:
+    # Priority 600 runs before web_server registers its handlers (setup, ~249),
+    # so clearing credentials here means add_handler never wraps them in auth
+    # middleware for this boot. See @note above for the timing details.
+    - priority: 600
+      then:
+        - lambda: |-
+            if (!${st_web_auth}) {
+              web_server_base::global_web_server_base->set_auth_username("");
+              web_server_base::global_web_server_base->set_auth_password("");
+            }
+
+web_server:
+  version: 3
+  include_internal: ${st_web_include_internal}
+  auth:
+    # Username must stay non-empty even when auth is "disabled" - an empty
+    # username makes authenticate() fail open (see @note above).
+    username: "${st_web_username}"
+    # Required var - no default. Users pass: vars: { st_web_password: !secret web_password }
+    password: "${st_web_password}"

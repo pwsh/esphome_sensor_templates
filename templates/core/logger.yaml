@@ -1,0 +1,20 @@
+# @template: logger
+# @title: Logger
+# @category: core
+# @description: Logger preset with configurable level and UART baud rate.
+# @platforms: esp32, esp32s2, esp32s3, esp32c3, esp32c6
+# @requires: none
+# @entities: none (logging preset only)
+# @var st_log_level [INFO]: Log verbosity (NONE, ERROR, WARN, INFO, DEBUG, VERBOSE, VERY_VERBOSE)
+# @var st_log_baud_rate [115200]: UART baud rate; set 0 to disable UART (serial) logging entirely
+# @note: Since ESPHome 2026.4.0 state-change messages are logged at VERBOSE, so INFO/DEBUG stays cheap - the noisy per-state spam no longer floods those levels.
+
+defaults:
+  st_log_level: INFO
+  st_log_baud_rate: "115200"
+
+logger:
+  level: ${st_log_level}
+  # Set st_log_baud_rate to 0 to turn off UART logging (frees the serial pins,
+  # saves the cost of formatting/writing every line to the port).
+  baud_rate: ${st_log_baud_rate}

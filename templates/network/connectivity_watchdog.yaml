@@ -1,0 +1,16 @@
+# @template: connectivity_watchdog
+# @title: Connectivity Watchdog
+# @category: network
+# @description: Config preset that sets the WiFi reboot_timeout, so the device restarts itself if it cannot stay associated to WiFi. Exposes no entities.
+# @platforms: esp32, esp32s2, esp32s3, esp32c3, esp32c6
+# @requires: wifi
+# @entities: none
+# @var st_wifi_reboot_timeout [15min]: How long WiFi may stay disconnected before the device reboots (0s disables the watchdog)
+# @note: This is built-in ESPHome behavior - the device restarts if WiFi association is lost for the whole window. This file just makes the knob explicit and overridable.
+# @note: Merge caveat - if the user's own wifi: block also sets reboot_timeout, the main config's value wins over this package.
+
+defaults:
+  st_wifi_reboot_timeout: 15min
+
+wifi:
+  reboot_timeout: ${st_wifi_reboot_timeout}

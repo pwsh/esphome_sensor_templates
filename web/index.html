@@ -1,0 +1,922 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ESPHome Sensor Templates — Config Builder</title>
+
+<!-- Catalog data. Ships with the literal placeholder {}; tools/build_catalog.py
+     injects the real catalog here. When empty, the page fetches catalog.json. -->
+<script id="catalog" type="application/json">{"min_esphome":"2026.5.0","categories":["core","diagnostics","network","controls","inputs"],"templates":[{"slug":"daily_restart","title":"Daily Scheduled Restart","category":"controls","description":"Reboots the device once a day at a configurable hour by attaching a schedule to an existing time component.","platforms":["esp32","esp32s2","esp32s3","esp32c3","esp32c6"],"requires":["time"],"entities":[{"domain":"button","name":"Daily Restart","extra":"always internal"}],"vars":[{"name":"st_restart_hour","default":"4","required":false,"secret":false,"description":"Hour of day (0-23, local time) at which to restart"},{"name":"st_daily_restart_time_id","default":"st_time_sntp","required":false,"secret":false,"description":"id of the time component to attach the schedule to (st_time_ha for the HA time preset)"}],"notes":["Needs a time: component. Include core/time_sntp.yaml (default) or core/time_homeassistant.yaml (then pass st_daily_restart_time_id: st_time_ha). ESPHome allows only one SNTP instance, so this file deliberately does NOT ship its own clock - it attaches to yours via !extend.","time.on_time does not reschedule across DST jumps - an event in the 01:00-02:00 window may be skipped or fire twice on the changeover day. Keeping the default 03:00-04:00 window is safe in most zones."],"path":"templates/controls/daily_restart.yaml","body":"defaults:\n  st_restart_hour: \"4\"\n  st_daily_restart_time_id: st_time_sntp\n\ntime:\n  # Attach the schedule to an already-included time component (plain\n  # re-declaration of an id is a hard \"ID redefined!\" error - !extend is the\n  # sanctioned way for a package to add options to another package's entry).\n  - id: !extend ${st_daily_restart_time_id}\n    on_time:\n      - hours: ${st_restart_hour}\n        minutes: 0\n        seconds: 0\n        then:\n          - button.press: st_daily_restart_button\n\nbutton:\n  # Always internal: this is a scheduling primitive, not a user control. Kept as an entity (with a\n  # name) rather than a bare action so web_server's include_internal can still surface/trigger it.\n  - platform: restart\n    id: st_daily_restart_button\n    name: \"Daily Restart\"\n    entity_category: config\n    icon: mdi:restart\n    device_class: restart\n    internal: true\n"},{"slug":"factory_reset_button","title":"Factory Reset Button","category":"controls","description":"Exposes a button that erases all stored preferences and returns the device to its fresh-flash state. Ships disabled by default because an accidental press is destructive.","platforms":["esp32","esp32s2","esp32s3","esp32c3","esp32c6"],"requires":[],"entities":[{"domain":"button","name":"Factory Reset"}],"vars":[{"name":"st_name_prefix","default":"","required":false,"secret":false,"description":"Prefix prepended to the entity name"},{"name":"st_disabled_by_default","default":"true","required":false,"secret":false,"description":"Ship the entity disabled in HA (overrides the library default - see note)"},{"name":"st_internal","default":"false","required":false,"secret":false,"description":"Hide the entity from HA/web entirely"}],"notes":["IRREVERSIBLE. Erases all stored preferences - WiFi credentials, restore_value globals (e.g. boot counter), and improv/captive-portal provisioning - and returns the device to a fresh-flash state. It will not reconnect until re-provisioned.","Ships disabled_by_default: true (unlike the rest of the library) so an accidental tap cannot wipe the device; the user must deliberately enable it in HA."],"path":"templates/controls/factory_reset_button.yaml","body":"defaults:\n  st_name_prefix: \"\"\n  # Override of the shared default: this control is destructive, so it ships disabled in HA.\n  st_disabled_by_default: \"true\"\n  st_internal: \"false\"\n\nbutton:\n  - platform: factory_reset\n    id: st_factory_reset_button\n    name: \"${st_name_prefix}Factory Reset\"\n    entity_category: config\n    icon: mdi:delete-restore\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n"},{"slug":"restart_button","title":"Restart Button","category":"controls","description":"Exposes a button in HA/web that soft-reboots the device (equivalent to a normal power cycle, config is re-applied).","platforms":["esp32","esp32s2","esp32s3","esp32c3","esp32c6"],"requires":[],"entities":[{"domain":"button","name":"Restart"}],"vars":[{"name":"st_name_prefix","default":"","required":false,"secret":false,"description":"Prefix prepended to the entity name"},{"name":"st_disabled_by_default","default":"false","required":false,"secret":false,"description":"Ship the entity disabled in HA"},{"name":"st_internal","default":"false","required":false,"secret":false,"description":"Hide the entity from HA/web entirely"}],"notes":["A plain restart re-applies the full config on next boot; use safe_mode_button.yaml instead if a broken config is preventing a normal boot."],"path":"templates/controls/restart_button.yaml","body":"defaults:\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n\nbutton:\n  - platform: restart\n    id: st_restart_button\n    name: \"${st_name_prefix}Restart\"\n    entity_category: config\n    icon: mdi:restart\n    device_class: restart\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n"},{"slug":"safe_mode_button","title":"Safe Mode Button","category":"controls","description":"Exposes a button that reboots the device into safe mode, where only network/logging/OTA run so a broken config can be re-flashed.","platforms":["esp32","esp32s2","esp32s3","esp32c3","esp32c6"],"requires":[],"entities":[{"domain":"button","name":"Restart (Safe Mode)"}],"vars":[{"name":"st_name_prefix","default":"","required":false,"secret":false,"description":"Prefix prepended to the entity name"},{"name":"st_disabled_by_default","default":"false","required":false,"secret":false,"description":"Ship the entity disabled in HA"},{"name":"st_internal","default":"false","required":false,"secret":false,"description":"Hide the entity from HA/web entirely"}],"notes":["Safe-mode boot brings up only network, logging and OTA - the rest of your config is skipped - so a config that crashes on boot can still be re-flashed over the air."],"path":"templates/controls/safe_mode_button.yaml","body":"defaults:\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n\n# Bare safe_mode: so the safe_mode button platform has something to trigger. Declared with no\n# options here: if core/safe_mode.yaml is also included, ESPHome deep-merges the two dicts\n# key-by-key, so its tuned thresholds win and this bare block adds nothing.\nsafe_mode:\n\nbutton:\n  - platform: safe_mode\n    id: st_safe_mode_button\n    name: \"${st_name_prefix}Restart (Safe Mode)\"\n    entity_category: config\n    icon: mdi:restart-alert\n    device_class: restart\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n"},{"slug":"shutdown_button","title":"Shutdown Button","category":"controls","description":"Exposes a button that shuts the device down into deep sleep with no wake source. Only a physical reset or power cycle brings it back.","platforms":["esp32","esp32s2","esp32s3","esp32c3","esp32c6"],"requires":[],"entities":[{"domain":"button","name":"Shutdown"}],"vars":[{"name":"st_name_prefix","default":"","required":false,"secret":false,"description":"Prefix prepended to the entity name"},{"name":"st_disabled_by_default","default":"false","required":false,"secret":false,"description":"Ship the entity disabled in HA"},{"name":"st_internal","default":"false","required":false,"secret":false,"description":"Hide the entity from HA/web entirely"}],"notes":["Enters deep sleep with no wake source configured - the device stops responding to WiFi/API/OTA. Only a physical reset button press or power cycle recovers it, so do not press this on a device you cannot reach."],"path":"templates/controls/shutdown_button.yaml","body":"defaults:\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n\nbutton:\n  - platform: shutdown\n    id: st_shutdown_button\n    name: \"${st_name_prefix}Shutdown\"\n    entity_category: config\n    icon: mdi:power\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n"},{"slug":"status_led","title":"Status LED","category":"controls","description":"Drives an on-board LED as a firmware status indicator - slow blink on warnings (WiFi/API down), fast blink on errors.","platforms":["esp32","esp32s2","esp32s3","esp32c3","esp32c6"],"requires":[],"entities":[],"vars":[{"name":"st_status_led_pin","default":"","required":true,"secret":false,"description":"GPIO the status LED is wired to (e.g. GPIO8)"},{"name":"st_status_led_inverted","default":"false","required":false,"secret":false,"description":"C++ literal \"true\"/\"false\" - set \"true\" for active-low LEDs (many on-board LEDs)"}],"notes":["Blink semantics are fixed by ESPHome and cannot be customized - slow blink = warning (wifi/api down), fast blink = error. There is no HA entity; the LED reflects internal firmware state only.","The pin is claimed exclusively by status_led and is otherwise unusable for other outputs."],"path":"templates/controls/status_led.yaml","body":"defaults:\n  st_status_led_inverted: \"false\"\n\nstatus_led:\n  pin:\n    number: ${st_status_led_pin}\n    inverted: ${st_status_led_inverted}\n"},{"slug":"api","title":"Home Assistant API","category":"core","description":"Native Home Assistant API preset with encryption and a survival-friendly reboot_timeout. Provides the api: component templates like time_homeassistant require.","platforms":["esp32","esp32s2","esp32s3","esp32c3","esp32c6"],"requires":["wifi"],"entities":[],"vars":[{"name":"st_api_reboot_timeout","default":"0s","required":false,"secret":false,"description":"How long the API may stay disconnected before the device reboots (0s = never)"},{"name":"st_api_key","default":"","required":true,"secret":true,"description":"Base64 API encryption key; pass via vars: { st_api_key: !secret api_key }"}],"notes":["Never store the key in this file - it is a required var so the user supplies it with their own !secret."],"path":"templates/core/api.yaml","body":"defaults:\n  st_api_reboot_timeout: 0s\n\napi:\n  # reboot_timeout defaults to 15min in ESPHome. With any short timeout the\n  # device reboot-loops whenever Home Assistant is unreachable longer than the\n  # window - HA restarts, HA OS updates, add-on upgrades - and every reboot\n  # wipes in-RAM state (uptime, un-persisted globals, sensor history). Setting\n  # 0s means \"never reboot just because the API is down\": the device keeps\n  # running standalone and stays usable via web_server until HA returns.\n  reboot_timeout: ${st_api_reboot_timeout}\n  encryption:\n    # Required var - no default. Users pass: vars: { st_api_key: !secret api_key }\n    key: ${st_api_key}\n"},{"slug":"logger","title":"Logger","category":"core","description":"Logger preset with configurable level and UART baud rate.","platforms":["esp32","esp32s2","esp32s3","esp32c3","esp32c6"],"requires":[],"entities":[],"vars":[{"name":"st_log_level","default":"INFO","required":false,"secret":false,"description":"Log verbosity (NONE, ERROR, WARN, INFO, DEBUG, VERBOSE, VERY_VERBOSE)"},{"name":"st_log_baud_rate","default":"115200","required":false,"secret":false,"description":"UART baud rate; set 0 to disable UART (serial) logging entirely"}],"notes":["Since ESPHome 2026.4.0 state-change messages are logged at VERBOSE, so INFO/DEBUG stays cheap - the noisy per-state spam no longer floods those levels."],"path":"templates/core/logger.yaml","body":"defaults:\n  st_log_level: INFO\n  st_log_baud_rate: \"115200\"\n\nlogger:\n  level: ${st_log_level}\n  # Set st_log_baud_rate to 0 to turn off UART logging (frees the serial pins,\n  # saves the cost of formatting/writing every line to the port).\n  baud_rate: ${st_log_baud_rate}\n"},{"slug":"ota","title":"OTA Updates","category":"core","description":"Over-the-air update preset (esphome platform) with a password gate and progress logging hooks.","platforms":["esp32","esp32s2","esp32s3","esp32c3","esp32c6"],"requires":["wifi"],"entities":[],"vars":[{"name":"st_ota_password","default":"","required":true,"secret":true,"description":"OTA upload password; pass via vars: { st_ota_password: !secret ota_password }"}],"notes":["Presence of ota: also auto-enables safe_mode. Include safe_mode.yaml only to tune its thresholds."],"path":"templates/core/ota.yaml","body":"ota:\n  - platform: esphome\n    # Required var - no default. Users pass: vars: { st_ota_password: !secret ota_password }\n    password: ${st_ota_password}\n    on_begin:\n      then:\n        - logger.log: \"OTA start\"\n    on_progress:\n      then:\n        - logger.log:\n            format: \"OTA progress %0.1f%%\"\n            args: [\"x\"]\n    on_end:\n      then:\n        - logger.log: \"OTA end\"\n    on_error:\n      then:\n        - logger.log:\n            format: \"OTA update error %d\"\n            args: [\"x\"]\n"},{"slug":"safe_mode","title":"Safe Mode","category":"core","description":"Tunes the boot-loop recovery safe_mode: after repeated crash-boots the device stops applying its config so an OTA fix can land.","platforms":["esp32","esp32s2","esp32s3","esp32c3","esp32c6"],"requires":[],"entities":[],"vars":[{"name":"st_safe_mode_attempts","default":"10","required":false,"secret":false,"description":"Consecutive failed boots before entering safe mode"},{"name":"st_safe_mode_reboot_timeout","default":"5min","required":false,"secret":false,"description":"How long to wait in safe mode for an OTA before rebooting to retry"},{"name":"st_safe_mode_boot_good_after","default":"1min","required":false,"secret":false,"description":"Uptime after which a boot counts as successful and the attempt counter resets"}],"notes":["Required by the safe_mode button/switch platforms. safe_mode is auto-enabled anyway whenever ota: is present - this preset just tunes its thresholds."],"path":"templates/core/safe_mode.yaml","body":"defaults:\n  st_safe_mode_attempts: \"10\"\n  st_safe_mode_reboot_timeout: 5min\n  st_safe_mode_boot_good_after: 1min\n\nsafe_mode:\n  num_attempts: ${st_safe_mode_attempts}\n  reboot_timeout: ${st_safe_mode_reboot_timeout}\n  boot_is_good_after: ${st_safe_mode_boot_good_after}\n  on_safe_mode:\n    - logger.log: \"Safe mode activated\"\n"},{"slug":"time_homeassistant","title":"Home Assistant Time","category":"core","description":"Time source synced from Home Assistant. Provides the time: component other templates (daily_restart, last_boot) require.","platforms":["esp32","esp32s2","esp32s3","esp32c3","esp32c6"],"requires":["api"],"entities":[],"vars":[],"notes":["Timezone auto-syncs from Home Assistant unless you set it in YAML - override with \"time: - id: !extend st_time_ha / timezone: Europe/Berlin\".","Do not include together with time_sntp.yaml unless you want two time sources."],"path":"templates/core/time_homeassistant.yaml","body":"time:\n  - platform: homeassistant\n    id: st_time_ha\n"},{"slug":"time_sntp","title":"SNTP Time","category":"core","description":"SNTP time source with configurable server. Provides the time: component other templates (daily_restart, last_boot) require.","platforms":["esp32","esp32s2","esp32s3","esp32c3","esp32c6"],"requires":["wifi"],"entities":[],"vars":[{"name":"st_ntp_server","default":"0.pool.ntp.org","required":false,"secret":false,"description":"NTP server to sync against"}],"notes":["Timezone is deliberately NOT set here - ESPHome auto-infers it from the build machine. Override per device with \"time: - id: !extend st_time_sntp / timezone: Europe/Berlin\".","Do not include together with time_homeassistant.yaml unless you want two time sources."],"path":"templates/core/time_sntp.yaml","body":"defaults:\n  st_ntp_server: 0.pool.ntp.org\n\ntime:\n  - platform: sntp\n    id: st_time_sntp\n    servers:\n      - ${st_ntp_server}\n    on_time_sync:\n      then:\n        - logger.log: \"Synchronized system clock\"\n"},{"slug":"web_server","title":"Web Server","category":"core","description":"Built-in web UI (v3) with HTTP basic auth and a boot-time gate that can disable auth without editing the config. Keeps the device usable standalone when Home Assistant is down.","platforms":["esp32","esp32s2","esp32s3","esp32c3","esp32c6"],"requires":["wifi"],"entities":[],"vars":[{"name":"st_web_include_internal","default":"true","required":false,"secret":false,"description":"Show internal: entities in the web UI too (C++ bool literal)"},{"name":"st_web_username","default":"admin","required":false,"secret":false,"description":"HTTP basic auth username; MUST NOT be empty (see note)"},{"name":"st_web_password","default":"","required":true,"secret":true,"description":"HTTP basic auth password; pass via vars: { st_web_password: !secret web_password }"},{"name":"st_web_auth","default":"true","required":false,"secret":false,"description":"Enable auth at boot - must be exactly \"true\" or \"false\", substituted as a C++ bool literal"}],"notes":["st_web_auth is injected raw into a lambda as a C++ bool literal, so it MUST be exactly \"true\" or \"false\" - not \"1\", \"yes\", or \"True\".","WebServerBase::add_handler only wraps handlers in auth middleware when credentials are non-empty AT REGISTRATION TIME. web_server registers its handlers in setup() at priority ~249 (WIFI-1), so clearing the credentials in on_boot at priority 600 (which runs earlier) disables auth for the whole boot.","st_web_username must NOT be empty - web_server_idf's authenticate() FAILS OPEN on an empty username (returns true for every request), silently disabling auth. Password-only auth is therefore not possible."],"path":"templates/core/web_server.yaml","body":"defaults:\n  st_web_include_internal: \"true\"\n  st_web_username: \"admin\"\n  st_web_auth: \"true\"\n\nesphome:\n  on_boot:\n    # Priority 600 runs before web_server registers its handlers (setup, ~249),\n    # so clearing credentials here means add_handler never wraps them in auth\n    # middleware for this boot. See @note above for the timing details.\n    - priority: 600\n      then:\n        - lambda: |-\n            if (!${st_web_auth}) {\n              web_server_base::global_web_server_base->set_auth_username(\"\");\n              web_server_base::global_web_server_base->set_auth_password(\"\");\n            }\n\nweb_server:\n  version: 3\n  include_internal: ${st_web_include_internal}\n  auth:\n    # Username must stay non-empty even when auth is \"disabled\" - an empty\n    # username makes authenticate() fail open (see @note above).\n    username: \"${st_web_username}\"\n    # Required var - no default. Users pass: vars: { st_web_password: !secret web_password }\n    password: \"${st_web_password}\"\n"},{"slug":"boot_counter","title":"Boot Counter","category":"diagnostics","description":"Counts device boots in an NVS-backed global and publishes the running total. Rising counts between expected reboots point at brown-outs, watchdog resets, or crashes.","platforms":["esp32","esp32s2","esp32s3","esp32c3","esp32c6"],"requires":[],"entities":[{"domain":"sensor","name":"Boot Count"}],"vars":[{"name":"st_name_prefix","default":"","required":false,"secret":false,"description":"Prefix prepended to the entity name"},{"name":"st_disabled_by_default","default":"false","required":false,"secret":false,"description":"Ship the entity disabled in HA"},{"name":"st_internal","default":"false","required":false,"secret":false,"description":"Hide the entity from HA/web entirely"}],"notes":["One NVS write per boot (restore_value) - negligible flash wear. The count survives reboots and OTA but NOT a factory_reset or a wired flash-erase.","This is a counter - state_class is hardcoded total_increasing and does NOT honor the ${st_state_class} knob. There is no update_interval: the value is published once from on_boot."],"path":"templates/diagnostics/boot_counter.yaml","body":"defaults:\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n\n# NVS-backed counter. restore_value persists it across reboots/OTA.\nglobals:\n  - id: st_boot_counter_value\n    type: int\n    restore_value: true\n    initial_value: \"0\"\n\nesphome:\n  on_boot:\n    # priority 600 runs early, before Wi-Fi/API, so the count is ready to publish.\n    - priority: 600\n      then:\n        - lambda: |-\n            id(st_boot_counter_value) += 1;\n            id(st_boot_counter).publish_state(id(st_boot_counter_value));\n\nsensor:\n  - platform: template\n    id: st_boot_counter\n    name: \"${st_name_prefix}Boot Count\"\n    # Published only from on_boot; never polled.\n    update_interval: never\n    accuracy_decimals: 0\n    # Monotonic counter: total_increasing is required, hardcoded (no knob).\n    state_class: total_increasing\n    icon: mdi:counter\n    entity_category: diagnostic\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n"},{"slug":"cpu_frequency","title":"CPU Frequency","category":"diagnostics","description":"Reports the current CPU clock from the debug component. Useful for confirming power-save/DFS behaviour or a mis-set framework clock.","platforms":["esp32","esp32s2","esp32s3","esp32c3","esp32c6"],"requires":[],"entities":[{"domain":"sensor","name":"CPU Frequency"}],"vars":[{"name":"st_update_interval","default":"60s","required":false,"secret":false,"description":"How often the debug hub refreshes the clock"},{"name":"st_name_prefix","default":"","required":false,"secret":false,"description":"Prefix prepended to the entity name"},{"name":"st_disabled_by_default","default":"false","required":false,"secret":false,"description":"Ship the entity disabled in HA"},{"name":"st_internal","default":"false","required":false,"secret":false,"description":"Hide the entity from HA/web entirely"},{"name":"st_state_class","default":"measurement","required":false,"secret":false,"description":"state_class for the sensor; set \"\" to opt out of HA long-term statistics"}],"notes":["Shares the debug: hub with the other debug-based templates; dicts merge across packages and the last update_interval wins."],"path":"templates/diagnostics/cpu_frequency.yaml","body":"defaults:\n  st_update_interval: 60s\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n  st_state_class: measurement\n\n# Shared debug hub (merges with other debug-based templates).\ndebug:\n  update_interval: ${st_update_interval}\n\nsensor:\n  - platform: debug\n    # The debug component reports the clock in Hz, so unit is Hz and it is a\n    # whole number - accuracy_decimals 0.\n    cpu_frequency:\n      id: st_cpu_frequency\n      name: \"${st_name_prefix}CPU Frequency\"\n      device_class: frequency\n      unit_of_measurement: Hz\n      accuracy_decimals: 0\n      state_class: \"${st_state_class}\"\n      entity_category: diagnostic\n      disabled_by_default: ${st_disabled_by_default}\n      internal: ${st_internal}\n      icon: mdi:speedometer\n"},{"slug":"device_info","title":"Device Info","category":"diagnostics","description":"Exposes the debug component's device text sensors - a one-line hardware/firmware summary (chip model, cores, revision, flash size, ESPHome version) and the last reset reason.","platforms":["esp32","esp32s2","esp32s3","esp32c3","esp32c6"],"requires":[],"entities":[{"domain":"text_sensor","name":"Device Info"},{"domain":"text_sensor","name":"Reset Reason"}],"vars":[{"name":"st_update_interval","default":"60s","required":false,"secret":false,"description":"How often the debug hub refreshes the text sensors"},{"name":"st_name_prefix","default":"","required":false,"secret":false,"description":"Prefix prepended to every entity name"},{"name":"st_disabled_by_default","default":"false","required":false,"secret":false,"description":"Ship the entities disabled in HA"},{"name":"st_internal","default":"false","required":false,"secret":false,"description":"Hide the entities from HA/web entirely"}],"notes":["Prefer this over hand-rolled esp_reset_reason() lambdas - the debug component decodes the reason string for you.","Shares the debug: hub with the other debug-based templates; dicts merge across packages and the last update_interval wins."],"path":"templates/diagnostics/device_info.yaml","body":"defaults:\n  st_update_interval: 60s\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n\n# Shared debug hub (merges with other debug-based templates).\ndebug:\n  update_interval: ${st_update_interval}\n\ntext_sensor:\n  - platform: debug\n    # device: is the multi-field hardware/firmware summary; reset_reason: is the\n    # decoded cause of the last restart (both text - no state_class).\n    device:\n      id: st_device_info\n      name: \"${st_name_prefix}Device Info\"\n      entity_category: diagnostic\n      disabled_by_default: ${st_disabled_by_default}\n      internal: ${st_internal}\n      icon: mdi:chip\n    reset_reason:\n      id: st_reset_reason\n      name: \"${st_name_prefix}Reset Reason\"\n      entity_category: diagnostic\n      disabled_by_default: ${st_disabled_by_default}\n      internal: ${st_internal}\n      icon: mdi:restart\n"},{"slug":"esphome_version","title":"ESPHome Version","category":"diagnostics","description":"Publishes the ESPHome version the firmware was built with via the version text_sensor platform. Handy for spotting devices that missed an OTA.","platforms":["esp32","esp32s2","esp32s3","esp32c3","esp32c6"],"requires":[],"entities":[{"domain":"text_sensor","name":"ESPHome Version"}],"vars":[{"name":"st_name_prefix","default":"","required":false,"secret":false,"description":"Prefix prepended to the entity name"},{"name":"st_disabled_by_default","default":"false","required":false,"secret":false,"description":"Ship the entity disabled in HA"},{"name":"st_internal","default":"false","required":false,"secret":false,"description":"Hide the entity from HA/web entirely"},{"name":"st_version_hide_timestamp","default":"false","required":false,"secret":false,"description":"\"true\" drops the compile timestamp and shows just the version string (C++ literal)"}],"notes":["The value is fixed at compile time, so it only changes on a rebuild/OTA."],"path":"templates/diagnostics/esphome_version.yaml","body":"defaults:\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n  st_version_hide_timestamp: \"false\"\n\ntext_sensor:\n  - platform: version\n    id: st_esphome_version\n    name: \"${st_name_prefix}ESPHome Version\"\n    icon: mdi:chip\n    entity_category: diagnostic\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n    # true = show just the version, false = append the build timestamp.\n    hide_timestamp: ${st_version_hide_timestamp}\n"},{"slug":"heap","title":"Heap Diagnostics","category":"diagnostics","description":"Reports internal heap health from the debug component - free bytes, largest allocatable block, historical minimum free, and fragmentation percent. The first thing to check when a device reboots under memory pressure.","platforms":["esp32","esp32s2","esp32s3","esp32c3","esp32c6"],"requires":[],"entities":[{"domain":"sensor","name":"Heap Free"},{"domain":"sensor","name":"Heap Max Block"},{"domain":"sensor","name":"Heap Min Free"},{"domain":"sensor","name":"Heap Fragmentation"}],"vars":[{"name":"st_update_interval","default":"60s","required":false,"secret":false,"description":"How often the debug hub refreshes heap stats"},{"name":"st_name_prefix","default":"","required":false,"secret":false,"description":"Prefix prepended to every entity name"},{"name":"st_disabled_by_default","default":"false","required":false,"secret":false,"description":"Ship the entities disabled in HA"},{"name":"st_internal","default":"false","required":false,"secret":false,"description":"Hide the entities from HA/web entirely"},{"name":"st_state_class","default":"measurement","required":false,"secret":false,"description":"state_class for the numeric sensors; set \"\" to opt out of HA long-term statistics"}],"notes":["Several diagnostics templates declare the debug: hub. ESPHome deep-merges the dict across packages, so the last update_interval wins - keep the knob identical everywhere.","Sustained fragmentation above ~50% is risky - large contiguous allocations (TLS buffers, JSON) can fail even with free bytes available."],"path":"templates/diagnostics/heap.yaml","body":"defaults:\n  st_update_interval: 60s\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n  st_state_class: measurement\n\n# Shared debug hub. Dicts merge across packages; the update_interval set by\n# whichever debug-based template is merged last wins for all of them.\ndebug:\n  update_interval: ${st_update_interval}\n\nsensor:\n  - platform: debug\n    free:\n      id: st_heap_free\n      name: \"${st_name_prefix}Heap Free\"\n      state_class: \"${st_state_class}\"\n      entity_category: diagnostic\n      disabled_by_default: ${st_disabled_by_default}\n      internal: ${st_internal}\n      icon: mdi:memory\n    block:\n      id: st_heap_max_block\n      name: \"${st_name_prefix}Heap Max Block\"\n      state_class: \"${st_state_class}\"\n      entity_category: diagnostic\n      disabled_by_default: ${st_disabled_by_default}\n      internal: ${st_internal}\n      icon: mdi:memory\n    min_free:\n      id: st_heap_min_free\n      name: \"${st_name_prefix}Heap Min Free\"\n      state_class: \"${st_state_class}\"\n      entity_category: diagnostic\n      disabled_by_default: ${st_disabled_by_default}\n      internal: ${st_internal}\n      icon: mdi:memory\n    fragmentation:\n      id: st_heap_fragmentation\n      name: \"${st_name_prefix}Heap Fragmentation\"\n      unit_of_measurement: \"%\"\n      state_class: \"${st_state_class}\"\n      entity_category: diagnostic\n      disabled_by_default: ${st_disabled_by_default}\n      internal: ${st_internal}\n      icon: mdi:memory\n"},{"slug":"internal_temperature","title":"Internal Temperature","category":"diagnostics","description":"Reads the on-die temperature sensor and derives a coupled overtemperature warning binary sensor that trips above a configurable threshold.","platforms":["esp32","esp32s2","esp32s3","esp32c3","esp32c6"],"requires":[],"entities":[{"domain":"sensor","name":"Internal Temperature"},{"domain":"binary_sensor","name":"Overtemperature"}],"vars":[{"name":"st_update_interval","default":"60s","required":false,"secret":false,"description":"How often to sample the die temperature"},{"name":"st_name_prefix","default":"","required":false,"secret":false,"description":"Prefix prepended to every entity name"},{"name":"st_disabled_by_default","default":"false","required":false,"secret":false,"description":"Ship the entities disabled in HA"},{"name":"st_internal","default":"false","required":false,"secret":false,"description":"Hide the entities from HA/web entirely"},{"name":"st_state_class","default":"measurement","required":false,"secret":false,"description":"state_class for the temperature sensor; set \"\" to opt out of HA long-term statistics"},{"name":"st_overtemp_threshold","default":"80","required":false,"secret":false,"description":"Warning trips above this many degC (numeric, substituted into C++)"}],"notes":["Some ESP32 variants report bogus values (e.g. a stuck 53.3 degC / raw 128). The internal_temperature component discards invalid readings, and the warning lambda ignores NaN."],"path":"templates/diagnostics/internal_temperature.yaml","body":"defaults:\n  st_update_interval: 60s\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n  st_state_class: measurement\n  st_overtemp_threshold: \"80\"\n\nsensor:\n  - platform: internal_temperature\n    id: st_internal_temperature\n    name: \"${st_name_prefix}Internal Temperature\"\n    device_class: temperature\n    unit_of_measurement: \"°C\"\n    accuracy_decimals: 1\n    state_class: \"${st_state_class}\"\n    entity_category: diagnostic\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n    icon: mdi:thermometer\n    update_interval: ${st_update_interval}\n\nbinary_sensor:\n  - platform: template\n    id: st_overtemp_warning\n    name: \"${st_name_prefix}Overtemperature\"\n    device_class: heat\n    entity_category: diagnostic\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n    icon: mdi:thermometer-alert\n    # Return {} while the reading is unknown so we never latch a false alarm on\n    # a NaN; ${st_overtemp_threshold} is a bare number spliced into the compare.\n    lambda: |-\n      if (isnan(id(st_internal_temperature).state)) return {};\n      return id(st_internal_temperature).state > ${st_overtemp_threshold};\n"},{"slug":"last_boot","title":"Last Boot","category":"diagnostics","description":"Publishes the wall-clock timestamp of the last boot as a timestamp sensor. HA renders it as a relative \"last seen\"-style time.","platforms":["esp32","esp32s2","esp32s3","esp32c3","esp32c6"],"requires":["time"],"entities":[{"domain":"sensor","name":"Last Boot"}],"vars":[{"name":"st_name_prefix","default":"","required":false,"secret":false,"description":"Prefix prepended to the entity name"},{"name":"st_disabled_by_default","default":"false","required":false,"secret":false,"description":"Ship the entity disabled in HA"},{"name":"st_internal","default":"false","required":false,"secret":false,"description":"Hide the entity from HA/web entirely"}],"notes":["Needs any time: component (e.g. core/time_sntp.yaml). Publishes once after the clock syncs; there is no update_interval (that only applies to type: seconds) and no state_class (device_class timestamp handles it)."],"path":"templates/diagnostics/last_boot.yaml","body":"defaults:\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n\nsensor:\n  - platform: uptime\n    # type: timestamp computes boot wall-clock time once the clock is valid and\n    # republishes only if it drifts; device_class defaults to timestamp - leave it.\n    type: timestamp\n    id: st_last_boot\n    name: \"${st_name_prefix}Last Boot\"\n    device_class: timestamp\n    icon: mdi:clock-start\n    entity_category: diagnostic\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n"},{"slug":"loop_time","title":"Loop Time","category":"diagnostics","description":"Reports the main-loop iteration time from the debug component, in milliseconds. Spikes reveal a component that blocks the loop (slow I2C, long lambdas).","platforms":["esp32","esp32s2","esp32s3","esp32c3","esp32c6"],"requires":[],"entities":[{"domain":"sensor","name":"Loop Time"}],"vars":[{"name":"st_update_interval","default":"60s","required":false,"secret":false,"description":"How often the debug hub refreshes loop time"},{"name":"st_name_prefix","default":"","required":false,"secret":false,"description":"Prefix prepended to the entity name"},{"name":"st_disabled_by_default","default":"false","required":false,"secret":false,"description":"Ship the entity disabled in HA"},{"name":"st_internal","default":"false","required":false,"secret":false,"description":"Hide the entity from HA/web entirely"},{"name":"st_state_class","default":"measurement","required":false,"secret":false,"description":"state_class for the sensor; set \"\" to opt out of HA long-term statistics"}],"notes":["Shares the debug: hub with the other debug-based templates; dicts merge across packages and the last update_interval wins."],"path":"templates/diagnostics/loop_time.yaml","body":"defaults:\n  st_update_interval: 60s\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n  st_state_class: measurement\n\n# Shared debug hub (merges with other debug-based templates).\ndebug:\n  update_interval: ${st_update_interval}\n\nsensor:\n  - platform: debug\n    # Reported by the debug component as the measured main-loop latency; a\n    # healthy loop stays low, sustained spikes point at a blocking component.\n    loop_time:\n      id: st_loop_time\n      name: \"${st_name_prefix}Loop Time\"\n      unit_of_measurement: ms\n      state_class: \"${st_state_class}\"\n      entity_category: diagnostic\n      disabled_by_default: ${st_disabled_by_default}\n      internal: ${st_internal}\n      icon: mdi:timer-sync-outline\n"},{"slug":"nvs_usage","title":"NVS Usage","category":"diagnostics","description":"Reports NVS entry fill (used/total) and the on-device NVS partition size. Diagnoses ESP_ERR_NVS_NOT_ENOUGH_SPACE before it bites.","platforms":["esp32","esp32s2","esp32s3","esp32c3","esp32c6"],"requires":[],"entities":[{"domain":"text_sensor","name":"NVS Usage"}],"vars":[{"name":"st_update_interval","default":"60s","required":false,"secret":false,"description":"How often to poll NVS statistics"},{"name":"st_name_prefix","default":"","required":false,"secret":false,"description":"Prefix prepended to the entity name"},{"name":"st_disabled_by_default","default":"false","required":false,"secret":false,"description":"Ship the entity disabled in HA"},{"name":"st_internal","default":"false","required":false,"secret":false,"description":"Hide the entity from HA/web entirely"}],"notes":["OTA never updates the partition table. A device first flashed with an old ESPHome may still run a 20 kB NVS even though current ESPHome allocates 448 kB - only a wired flash replaces the table."],"path":"templates/diagnostics/nvs_usage.yaml","body":"defaults:\n  st_update_interval: 60s\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n\nesphome:\n  # nvs.h / esp_partition.h are not pulled into main.cpp by any component, so\n  # force-include them for the lambda below. build_src_flags only affects the\n  # project's own src/ (main.cpp), not the framework build, and the list\n  # concatenates cleanly with flags from other templates.\n  platformio_options:\n    build_src_flags:\n      - \"-include nvs.h\"\n      - \"-include esp_partition.h\"\n\ntext_sensor:\n  - platform: template\n    id: st_nvs_usage\n    name: \"${st_name_prefix}NVS Usage\"\n    icon: mdi:database\n    entity_category: diagnostic\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n    update_interval: ${st_update_interval}\n    # nvs_get_stats() covers the default \"nvs\" partition; the partition lookup\n    # reports the size actually flashed to THIS device (see @note above).\n    lambda: |-\n      nvs_stats_t s;\n      if (nvs_get_stats(NULL, &s) != ESP_OK) return {\"unavailable\"};\n      const esp_partition_t *p = esp_partition_find_first(\n          ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_NVS, nullptr);\n      char buf[64];\n      snprintf(buf, sizeof(buf), \"%u/%u entries, %u kB partition\",\n               (unsigned) s.used_entries, (unsigned) s.total_entries,\n               p != nullptr ? (unsigned) (p->size / 1024) : 0);\n      return {std::string(buf)};\n"},{"slug":"psram","title":"PSRAM Free","category":"diagnostics","description":"Reports free PSRAM (SPI RAM) in bytes from the debug component. Confirms that external PSRAM is detected and tracks headroom for buffer-heavy components.","platforms":["esp32","esp32s2","esp32s3"],"requires":["psram"],"entities":[{"domain":"sensor","name":"PSRAM Free"}],"vars":[{"name":"st_update_interval","default":"60s","required":false,"secret":false,"description":"How often the debug hub refreshes PSRAM stats"},{"name":"st_name_prefix","default":"","required":false,"secret":false,"description":"Prefix prepended to the entity name"},{"name":"st_disabled_by_default","default":"false","required":false,"secret":false,"description":"Ship the entity disabled in HA"},{"name":"st_internal","default":"false","required":false,"secret":false,"description":"Hide the entity from HA/web entirely"},{"name":"st_state_class","default":"measurement","required":false,"secret":false,"description":"state_class for the sensor; set \"\" to opt out of HA long-term statistics"}],"notes":["ESP32-C3/C6 have no PSRAM interface - this template is limited to esp32/s2/s3. Requires the psram: component configured AND PSRAM hardware present, otherwise the sensor reports 0.","Shares the debug: hub with the other debug-based templates; dicts merge across packages and the last update_interval wins."],"path":"templates/diagnostics/psram.yaml","body":"defaults:\n  st_update_interval: 60s\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n  st_state_class: measurement\n\n# Shared debug hub (merges with other debug-based templates).\ndebug:\n  update_interval: ${st_update_interval}\n\nsensor:\n  - platform: debug\n    # Only populated when the psram: component is configured and the module\n    # actually has SPI RAM - otherwise reports 0.\n    psram:\n      id: st_psram_free\n      name: \"${st_name_prefix}PSRAM Free\"\n      unit_of_measurement: B\n      device_class: data_size\n      state_class: \"${st_state_class}\"\n      entity_category: diagnostic\n      disabled_by_default: ${st_disabled_by_default}\n      internal: ${st_internal}\n      icon: mdi:memory\n"},{"slug":"uptime","title":"Uptime (seconds)","category":"diagnostics","description":"Reports device uptime in seconds as a monotonic counter. The canonical \"is it still up?\" signal for HA availability graphs.","platforms":["esp32","esp32s2","esp32s3","esp32c3","esp32c6"],"requires":[],"entities":[{"domain":"sensor","name":"Uptime"}],"vars":[{"name":"st_update_interval","default":"60s","required":false,"secret":false,"description":"How often to publish the uptime value"},{"name":"st_name_prefix","default":"","required":false,"secret":false,"description":"Prefix prepended to the entity name"},{"name":"st_disabled_by_default","default":"false","required":false,"secret":false,"description":"Ship the entity disabled in HA"},{"name":"st_internal","default":"false","required":false,"secret":false,"description":"Hide the entity from HA/web entirely"}],"notes":["This is a counter - state_class is hardcoded total_increasing and does NOT honor the ${st_state_class} knob."],"path":"templates/diagnostics/uptime.yaml","body":"defaults:\n  st_update_interval: 60s\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n\nsensor:\n  - platform: uptime\n    type: seconds\n    id: st_uptime_seconds\n    name: \"${st_name_prefix}Uptime\"\n    device_class: duration\n    # Monotonic counter: total_increasing is semantically required, so it is\n    # hardcoded here rather than driven by the ${st_state_class} knob.\n    state_class: total_increasing\n    unit_of_measurement: s\n    accuracy_decimals: 0\n    icon: mdi:timer-outline\n    entity_category: diagnostic\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n    update_interval: ${st_update_interval}\n"},{"slug":"uptime_text","title":"Uptime (human-readable)","category":"diagnostics","description":"Reports device uptime as a human-readable string (e.g. \"3d 4h 12m 5s\") using the uptime platform's built-in formatting. Nicer to read on a dashboard than raw seconds.","platforms":["esp32","esp32s2","esp32s3","esp32c3","esp32c6"],"requires":[],"entities":[{"domain":"text_sensor","name":"Uptime"}],"vars":[{"name":"st_update_interval","default":"60s","required":false,"secret":false,"description":"How often to refresh the formatted string"},{"name":"st_name_prefix","default":"","required":false,"secret":false,"description":"Prefix prepended to the entity name"},{"name":"st_disabled_by_default","default":"false","required":false,"secret":false,"description":"Ship the entity disabled in HA"},{"name":"st_internal","default":"false","required":false,"secret":false,"description":"Hide the entity from HA/web entirely"}],"notes":["Supersedes the old hand-rolled lambda approach - the uptime text_sensor platform now formats the string natively via the format: block."],"path":"templates/diagnostics/uptime_text.yaml","body":"defaults:\n  st_update_interval: 60s\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n\ntext_sensor:\n  - platform: uptime\n    id: st_uptime_text\n    name: \"${st_name_prefix}Uptime\"\n    icon: mdi:timer-outline\n    entity_category: diagnostic\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n    update_interval: ${st_update_interval}\n    # Built-in formatting: separator + per-unit suffixes yield \"3d 4h 12m 5s\".\n    format:\n      separator: \" \"\n      days: \"d\"\n      hours: \"h\"\n      minutes: \"m\"\n      seconds: \"s\"\n"},{"slug":"deep_sleep_control","title":"HA-Controlled Deep Sleep","category":"inputs","description":"The classic Home Assistant-controlled deep sleep pattern. The device sleeps between runs but honors an HA input_boolean that can hold it awake for OTA/config.","platforms":["esp32","esp32s2","esp32s3","esp32c3","esp32c6"],"requires":["api","HA input_boolean helper named by st_prevent_sleep_entity"],"entities":[],"vars":[{"name":"st_sleep_duration","default":"10min","required":false,"secret":false,"description":"How long the device stays asleep between runs"},{"name":"st_run_duration","default":"60s","required":false,"secret":false,"description":"How long the device stays awake each run before sleeping"},{"name":"st_prevent_sleep_entity","default":"input_boolean.prevent_deep_sleep","required":false,"secret":false,"description":"HA entity that, when ON, prevents sleep"}],"notes":["SINGLE-INSTANCE - this file uses fixed ids (st_deep_sleep, st_prevent_sleep). Include it exactly ONCE.","Requires an active api: connection - the homeassistant binary_sensor platform reads the toggle over the API.","The device can only see the toggle WHILE AWAKE. Flip the HA input_boolean ON *before* the next wake so the device catches it during its brief run_duration window (that window is your OTA opportunity).","When the toggle goes back OFF (on_release), deep_sleep.allow re-arms sleep and restarts the run_duration timer, so the device stays awake for a fresh run_duration before sleeping again.","Create the helper in HA: Settings > Devices & Services > Helpers > Toggle, matching st_prevent_sleep_entity."],"path":"templates/inputs/deep_sleep_control.yaml","body":"defaults:\n  st_sleep_duration: 10min\n  st_run_duration: 60s\n  st_prevent_sleep_entity: input_boolean.prevent_deep_sleep\n\ndeep_sleep:\n  id: st_deep_sleep\n  sleep_duration: ${st_sleep_duration}\n  run_duration: ${st_run_duration}\n\nbinary_sensor:\n  # Always internal: this is a control input from HA, not a user-facing entity.\n  - platform: homeassistant\n    id: st_prevent_sleep\n    entity_id: ${st_prevent_sleep_entity}\n    internal: true\n    # Toggle ON in HA -> hold the device awake.\n    on_press:\n      then:\n        - deep_sleep.prevent: st_deep_sleep\n    # Toggle OFF in HA -> re-allow sleep and restart the run_duration timer.\n    on_release:\n      then:\n        - deep_sleep.allow: st_deep_sleep\n"},{"slug":"generic_number","title":"Generic Number Input","category":"inputs","description":"A user-adjustable template number, surfaced in HA as a config control. Use it for thresholds, calibration offsets, setpoints - read the value elsewhere via id(...).state.","platforms":["esp32","esp32s2","esp32s3","esp32c3","esp32c6"],"requires":[],"entities":[{"domain":"number","name":"Setpoint"}],"vars":[{"name":"st_name_prefix","default":"","required":false,"secret":false,"description":"Prefix prepended to the entity name"},{"name":"st_disabled_by_default","default":"false","required":false,"secret":false,"description":"Ship the entity disabled in HA"},{"name":"st_internal","default":"false","required":false,"secret":false,"description":"Hide the entity from HA/web entirely"},{"name":"st_number_id","default":"st_generic_number","required":false,"secret":false,"description":"Entity id - MUST be overridden on every extra include (see notes)"},{"name":"st_number_name","default":"Setpoint","required":false,"secret":false,"description":"Entity name (after st_name_prefix)"},{"name":"st_number_min","default":"-100","required":false,"secret":false,"description":"Minimum selectable value"},{"name":"st_number_max","default":"100","required":false,"secret":false,"description":"Maximum selectable value"},{"name":"st_number_step","default":"1","required":false,"secret":false,"description":"Increment between values"},{"name":"st_number_initial","default":"0","required":false,"secret":false,"description":"Value used before anything is restored/set"},{"name":"st_number_unit","default":"","required":false,"secret":false,"description":"Unit of measurement shown in HA (e.g. \"C\", \"%\")"},{"name":"st_number_mode","default":"box","required":false,"secret":false,"description":"UI mode - box, slider, or auto"},{"name":"st_number_restore","default":"true","required":false,"secret":false,"description":"Persist the value across reboots (C++ literal \"true\"/\"false\")"}],"notes":["MULTI-INSTANCE - include this file more than once to get several numbers. Each extra include MUST override BOTH st_number_id AND st_number_name; duplicate ids are a hard \"ID redefined!\" compile error.","On a template number, restore_value is INCOMPATIBLE with a lambda, so this template uses optimistic:true (the entity holds its own state) and no lambda.","restore_value:true writes to NVS on every change (one flash write per change). NVS flash has limited write endurance - leave it \"false\" for values that change very often."],"path":"templates/inputs/generic_number.yaml","body":"defaults:\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n  st_number_id: st_generic_number\n  st_number_name: \"Setpoint\"\n  st_number_min: \"-100\"\n  st_number_max: \"100\"\n  st_number_step: \"1\"\n  st_number_initial: \"0\"\n  st_number_unit: \"\"\n  st_number_mode: box\n  st_number_restore: \"true\"\n\nnumber:\n  - platform: template\n    # The id itself is a var so the file can be included multiple times.\n    id: ${st_number_id}\n    name: \"${st_name_prefix}${st_number_name}\"\n    min_value: ${st_number_min}\n    max_value: ${st_number_max}\n    step: ${st_number_step}\n    initial_value: ${st_number_initial}\n    unit_of_measurement: \"${st_number_unit}\"\n    mode: ${st_number_mode}\n    # optimistic + no lambda: the component stores its own state.\n    optimistic: true\n    restore_value: ${st_number_restore}\n    entity_category: config\n    icon: mdi:tune\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n"},{"slug":"generic_select","title":"Generic Select Input","category":"inputs","description":"A user-adjustable template select (dropdown), surfaced in HA as a config control. Use it to pick a mode/profile and read the choice elsewhere via id(...).state.","platforms":["esp32","esp32s2","esp32s3","esp32c3","esp32c6"],"requires":[],"entities":[{"domain":"select","name":"Mode"}],"vars":[{"name":"st_name_prefix","default":"","required":false,"secret":false,"description":"Prefix prepended to the entity name"},{"name":"st_disabled_by_default","default":"false","required":false,"secret":false,"description":"Ship the entity disabled in HA"},{"name":"st_internal","default":"false","required":false,"secret":false,"description":"Hide the entity from HA/web entirely"},{"name":"st_select_id","default":"st_generic_select","required":false,"secret":false,"description":"Entity id - MUST be overridden on every extra include (see notes)"},{"name":"st_select_name","default":"Mode","required":false,"secret":false,"description":"Entity name (after st_name_prefix)"},{"name":"st_select_options","default":"[\"Option A\", \"Option B\"]","required":false,"secret":false,"description":"List of options - pass a YAML list in vars:"},{"name":"st_select_initial","default":"Option A","required":false,"secret":false,"description":"Option selected before anything is restored/set"},{"name":"st_select_restore","default":"true","required":false,"secret":false,"description":"Persist the selection across reboots (C++ literal \"true\"/\"false\")"}],"notes":["MULTI-INSTANCE - include this file more than once to get several selects. Each extra include MUST override BOTH st_select_id AND st_select_name; duplicate ids are a hard \"ID redefined!\" compile error.","st_select_options is a LIST-valued substitution. Pass it exactly like any other var, but as a YAML list, e.g. vars: { st_select_options: [\"Eco\", \"Comfort\", \"Boost\"] }.","st_select_initial MUST be one of st_select_options, otherwise config validation fails.","On a template select, restore_value is INCOMPATIBLE with a lambda, so this template uses optimistic:true (the entity holds its own state) and no lambda.","restore_value:true writes to NVS on every change (one flash write per change) - NVS flash has limited write endurance."],"path":"templates/inputs/generic_select.yaml","body":"defaults:\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n  st_select_id: st_generic_select\n  st_select_name: \"Mode\"\n  # List-valued substitution: users override by passing their own YAML list.\n  st_select_options:\n    - \"Option A\"\n    - \"Option B\"\n  st_select_initial: \"Option A\"\n  st_select_restore: \"true\"\n\nselect:\n  - platform: template\n    # The id itself is a var so the file can be included multiple times.\n    id: ${st_select_id}\n    name: \"${st_name_prefix}${st_select_name}\"\n    options: ${st_select_options}\n    initial_option: \"${st_select_initial}\"\n    # optimistic + no lambda: the component stores its own state.\n    optimistic: true\n    restore_value: ${st_select_restore}\n    entity_category: config\n    icon: mdi:form-dropdown\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n"},{"slug":"generic_switch","title":"Generic Switch (virtual flag)","category":"inputs","description":"A virtual template switch, surfaced in HA as a config control. Use it as an on/off flag to gate automations - read it via id(...).state or attach actions with !extend.","platforms":["esp32","esp32s2","esp32s3","esp32c3","esp32c6"],"requires":[],"entities":[{"domain":"switch","name":"Flag"}],"vars":[{"name":"st_name_prefix","default":"","required":false,"secret":false,"description":"Prefix prepended to the entity name"},{"name":"st_disabled_by_default","default":"false","required":false,"secret":false,"description":"Ship the entity disabled in HA"},{"name":"st_internal","default":"false","required":false,"secret":false,"description":"Hide the entity from HA/web entirely"},{"name":"st_switch_id","default":"st_generic_switch","required":false,"secret":false,"description":"Entity id - MUST be overridden on every extra include (see notes)"},{"name":"st_switch_name","default":"Flag","required":false,"secret":false,"description":"Entity name (after st_name_prefix)"},{"name":"st_switch_restore_mode","default":"RESTORE_DEFAULT_OFF","required":false,"secret":false,"description":"Boot behavior - see enum in notes"}],"notes":["MULTI-INSTANCE - include this file more than once to get several switches. Each extra include MUST override BOTH st_switch_id AND st_switch_name; duplicate ids are a hard \"ID redefined!\" compile error.","restore_mode enum: RESTORE_DEFAULT_OFF, RESTORE_DEFAULT_ON, ALWAYS_OFF, ALWAYS_ON, RESTORE_INVERTED_DEFAULT_OFF, RESTORE_INVERTED_DEFAULT_ON, DISABLED. RESTORE_* variants read the last state from NVS (one flash write per change); ALWAYS_* never persist.","This is a virtual flag - it drives nothing on its own. Read id(st_generic_switch).state in a lambda, or attach on_turn_on/on_turn_off actions via \"switch: - id: !extend st_generic_switch\"."],"path":"templates/inputs/generic_switch.yaml","body":"defaults:\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n  st_switch_id: st_generic_switch\n  st_switch_name: \"Flag\"\n  st_switch_restore_mode: RESTORE_DEFAULT_OFF\n\nswitch:\n  - platform: template\n    # The id itself is a var so the file can be included multiple times.\n    id: ${st_switch_id}\n    name: \"${st_name_prefix}${st_switch_name}\"\n    # optimistic: the switch tracks its own commanded state (no output to drive).\n    optimistic: true\n    restore_mode: ${st_switch_restore_mode}\n    entity_category: config\n    icon: mdi:toggle-switch-outline\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n"},{"slug":"generic_text","title":"Generic Text Input","category":"inputs","description":"A user-editable template text field, surfaced in HA as a config control. Use it for free-form notes, labels, or short config strings - read it via id(...).state.","platforms":["esp32","esp32s2","esp32s3","esp32c3","esp32c6"],"requires":[],"entities":[{"domain":"text","name":"Note"}],"vars":[{"name":"st_name_prefix","default":"","required":false,"secret":false,"description":"Prefix prepended to the entity name"},{"name":"st_disabled_by_default","default":"false","required":false,"secret":false,"description":"Ship the entity disabled in HA"},{"name":"st_internal","default":"false","required":false,"secret":false,"description":"Hide the entity from HA/web entirely"},{"name":"st_text_id","default":"st_generic_text","required":false,"secret":false,"description":"Entity id - MUST be overridden on every extra include (see notes)"},{"name":"st_text_name","default":"Note","required":false,"secret":false,"description":"Entity name (after st_name_prefix)"},{"name":"st_text_max_length","default":"64","required":false,"secret":false,"description":"Maximum number of characters allowed"},{"name":"st_text_restore","default":"false","required":false,"secret":false,"description":"Persist the text across reboots (C++ literal \"true\"/\"false\")"}],"notes":["MULTI-INSTANCE - include this file more than once to get several text fields. Each extra include MUST override BOTH st_text_id AND st_text_name; duplicate ids are a hard \"ID redefined!\" compile error.","On a template text, restore_value is INCOMPATIBLE with a lambda, so this template uses optimistic:true (the entity holds its own state) and no lambda.","Text values eat NVS space (a whole string per write, one flash write per change), so restore_value defaults to \"false\" here. Turn it \"true\" only when persistence is genuinely needed."],"path":"templates/inputs/generic_text.yaml","body":"defaults:\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n  st_text_id: st_generic_text\n  st_text_name: \"Note\"\n  st_text_max_length: \"64\"\n  st_text_restore: \"false\"\n\ntext:\n  - platform: template\n    # The id itself is a var so the file can be included multiple times.\n    id: ${st_text_id}\n    name: \"${st_name_prefix}${st_text_name}\"\n    mode: text\n    # optimistic + no lambda: the component stores its own state.\n    optimistic: true\n    restore_value: ${st_text_restore}\n    min_length: 0\n    max_length: ${st_text_max_length}\n    entity_category: config\n    icon: mdi:form-textbox\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n"},{"slug":"connectivity_watchdog","title":"Connectivity Watchdog","category":"network","description":"Config preset that sets the WiFi reboot_timeout, so the device restarts itself if it cannot stay associated to WiFi. Exposes no entities.","platforms":["esp32","esp32s2","esp32s3","esp32c3","esp32c6"],"requires":["wifi"],"entities":[],"vars":[{"name":"st_wifi_reboot_timeout","default":"15min","required":false,"secret":false,"description":"How long WiFi may stay disconnected before the device reboots (0s disables the watchdog)"}],"notes":["This is built-in ESPHome behavior - the device restarts if WiFi association is lost for the whole window. This file just makes the knob explicit and overridable.","Merge caveat - if the user's own wifi: block also sets reboot_timeout, the main config's value wins over this package."],"path":"templates/network/connectivity_watchdog.yaml","body":"defaults:\n  st_wifi_reboot_timeout: 15min\n\nwifi:\n  reboot_timeout: ${st_wifi_reboot_timeout}\n"},{"slug":"ha_status","title":"Home Assistant Connected","category":"network","description":"Binary sensor that reports whether the device currently has a live connection to Home Assistant (native API or MQTT).","platforms":["esp32","esp32s2","esp32s3","esp32c3","esp32c6"],"requires":["api"],"entities":[{"domain":"binary_sensor","name":"Connected"}],"vars":[{"name":"st_name_prefix","default":"","required":false,"secret":false,"description":"Prefix prepended to the entity name"},{"name":"st_disabled_by_default","default":"false","required":false,"secret":false,"description":"Ship the entity disabled in HA"},{"name":"st_internal","default":"false","required":false,"secret":false,"description":"Hide the entity from HA/web entirely"}],"notes":["Reports native-API/MQTT connection state (HA reachability), not raw WiFi association - it complements wifi_signal rather than duplicating it.","No update_interval var - the status component polls its connection internally (1s); that cadence is by design and not tunable here."],"path":"templates/network/ha_status.yaml","body":"defaults:\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n\nbinary_sensor:\n  - platform: status\n    id: st_ha_status\n    name: \"${st_name_prefix}Connected\"\n    device_class: connectivity\n    entity_category: diagnostic\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n"},{"slug":"wifi_channel","title":"WiFi Channel","category":"network","description":"Reports the primary WiFi channel the device is currently associated on, read directly from the ESP-IDF station driver.","platforms":["esp32","esp32s2","esp32s3","esp32c3","esp32c6"],"requires":["wifi"],"entities":[{"domain":"sensor","name":"WiFi Channel"}],"vars":[{"name":"st_update_interval","default":"60s","required":false,"secret":false,"description":"How often to read the current channel"},{"name":"st_name_prefix","default":"","required":false,"secret":false,"description":"Prefix prepended to the entity name"},{"name":"st_disabled_by_default","default":"false","required":false,"secret":false,"description":"Ship the entity disabled in HA"},{"name":"st_internal","default":"false","required":false,"secret":false,"description":"Hide the entity from HA/web entirely"}],"notes":["A channel number is not a measurement, so state_class is intentionally omitted (st_state_class does not apply).","Uses esp_wifi_sta_get_ap_info directly (ESP-IDF). esp_wifi.h is NOT in scope in ESPHome lambdas by default, so this file force-includes it into main.cpp via platformio_options build_src_flags (project sources only - the framework build is untouched).","Returns NAN (state unknown) when the device is not associated."],"path":"templates/network/wifi_channel.yaml","body":"defaults:\n  st_update_interval: 60s\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n\nesphome:\n  # esp_wifi.h is not included in main.cpp by any component, so force-include\n  # it for the lambda below. build_src_flags only affects the project's own\n  # src/ (main.cpp) and the list concatenates with flags from other templates.\n  platformio_options:\n    build_src_flags:\n      - \"-include esp_wifi.h\"\n\nsensor:\n  - platform: template\n    id: st_wifi_channel\n    name: \"${st_name_prefix}WiFi Channel\"\n    icon: mdi:wifi-settings\n    accuracy_decimals: 0\n    entity_category: diagnostic\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n    update_interval: ${st_update_interval}\n    lambda: |-\n      wifi_ap_record_t info;\n      if (esp_wifi_sta_get_ap_info(&info) != ESP_OK) return NAN;\n      return info.primary;\n"},{"slug":"wifi_disconnect_counter","title":"WiFi Disconnect Counter","category":"network","description":"Counts WiFi disconnect events since boot and exposes the running total as a sensor.","platforms":["esp32","esp32s2","esp32s3","esp32c3","esp32c6"],"requires":["wifi"],"entities":[{"domain":"sensor","name":"WiFi Disconnects"}],"vars":[{"name":"st_update_interval","default":"60s","required":false,"secret":false,"description":"How often to publish the current disconnect count"},{"name":"st_name_prefix","default":"","required":false,"secret":false,"description":"Prefix prepended to the entity name"},{"name":"st_disabled_by_default","default":"false","required":false,"secret":false,"description":"Ship the entity disabled in HA"},{"name":"st_internal","default":"false","required":false,"secret":false,"description":"Hide the entity from HA/web entirely"}],"notes":["state_class is hardcoded total_increasing (a counter), so st_state_class does not apply here.","This file's wifi: block merges into the user's wifi config - on_disconnect lists concatenate, so the user's own on_disconnect still runs.","Counts since boot; restore_value is false to avoid NVS wear. For a lifetime count across reboots, `!extend st_wifi_disconnects_value` and set restore_value: true."],"path":"templates/network/wifi_disconnect_counter.yaml","body":"defaults:\n  st_update_interval: 60s\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n\nglobals:\n  - id: st_wifi_disconnects_value\n    type: int\n    restore_value: false\n    initial_value: \"0\"\n\nwifi:\n  on_disconnect:\n    then:\n      - lambda: 'id(st_wifi_disconnects_value) += 1;'\n\nsensor:\n  - platform: template\n    id: st_wifi_disconnects\n    name: \"${st_name_prefix}WiFi Disconnects\"\n    icon: mdi:wifi-off\n    accuracy_decimals: 0\n    state_class: total_increasing\n    entity_category: diagnostic\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n    update_interval: ${st_update_interval}\n    lambda: return id(st_wifi_disconnects_value);\n"},{"slug":"wifi_info","title":"WiFi Info","category":"network","description":"Exposes the device's current WiFi/network identity - IP address, SSID, BSSID, MAC address and DNS - as text sensors.","platforms":["esp32","esp32s2","esp32s3","esp32c3","esp32c6"],"requires":["wifi"],"entities":[{"domain":"text_sensor","name":"IP Address"},{"domain":"text_sensor","name":"SSID"},{"domain":"text_sensor","name":"BSSID"},{"domain":"text_sensor","name":"MAC Address"},{"domain":"text_sensor","name":"DNS Address"}],"vars":[{"name":"st_name_prefix","default":"","required":false,"secret":false,"description":"Prefix prepended to every entity name"},{"name":"st_disabled_by_default","default":"false","required":false,"secret":false,"description":"Ship the entities disabled in HA"},{"name":"st_internal","default":"false","required":false,"secret":false,"description":"Hide the entities from HA/web entirely"}],"notes":["wifi_info is event-driven (values refresh on association change), so there is no update_interval to tune.","scan_results is deliberately omitted - it is expensive. Add it with `!extend st_wifi_info_ip` ... or a separate wifi_info block if you need it."],"path":"templates/network/wifi_info.yaml","body":"defaults:\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n\ntext_sensor:\n  - platform: wifi_info\n    ip_address:\n      id: st_wifi_info_ip\n      name: \"${st_name_prefix}IP Address\"\n      entity_category: diagnostic\n      disabled_by_default: ${st_disabled_by_default}\n      internal: ${st_internal}\n    ssid:\n      id: st_wifi_info_ssid\n      name: \"${st_name_prefix}SSID\"\n      entity_category: diagnostic\n      disabled_by_default: ${st_disabled_by_default}\n      internal: ${st_internal}\n    bssid:\n      id: st_wifi_info_bssid\n      name: \"${st_name_prefix}BSSID\"\n      entity_category: diagnostic\n      disabled_by_default: ${st_disabled_by_default}\n      internal: ${st_internal}\n    mac_address:\n      id: st_wifi_info_mac\n      name: \"${st_name_prefix}MAC Address\"\n      entity_category: diagnostic\n      disabled_by_default: ${st_disabled_by_default}\n      internal: ${st_internal}\n    dns_address:\n      id: st_wifi_info_dns\n      name: \"${st_name_prefix}DNS Address\"\n      entity_category: diagnostic\n      disabled_by_default: ${st_disabled_by_default}\n      internal: ${st_internal}\n"},{"slug":"wifi_quality","title":"WiFi Quality (plain language)","category":"network","description":"Translates RSSI into a plain-language rating (Excellent/Good/Fair/Poor/Very Poor). Carries its own internal RSSI source, so it works standalone.","platforms":["esp32","esp32s2","esp32s3","esp32c3","esp32c6"],"requires":["wifi"],"entities":[{"domain":"text_sensor","name":"WiFi Quality"}],"vars":[{"name":"st_update_interval","default":"30s","required":false,"secret":false,"description":"How often to sample RSSI and refresh the rating"},{"name":"st_name_prefix","default":"","required":false,"secret":false,"description":"Prefix prepended to the entity name"},{"name":"st_disabled_by_default","default":"false","required":false,"secret":false,"description":"Ship the entity disabled in HA"},{"name":"st_internal","default":"false","required":false,"secret":false,"description":"Hide the entity from HA/web entirely"}],"notes":["Includes a hidden wifi_signal sensor (st_wifi_quality_rssi). Including wifi_signal.yaml as well adds a second, independent RSSI read - harmless, but the dBm entity lives there."],"path":"templates/network/wifi_quality.yaml","body":"defaults:\n  st_update_interval: 30s\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n\nsensor:\n  # Hidden RSSI source so this file never depends on another template's id.\n  - platform: wifi_signal\n    id: st_wifi_quality_rssi\n    internal: true\n    update_interval: ${st_update_interval}\n\ntext_sensor:\n  - platform: template\n    id: st_wifi_quality\n    name: \"${st_name_prefix}WiFi Quality\"\n    icon: mdi:wifi\n    entity_category: diagnostic\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n    update_interval: ${st_update_interval}\n    lambda: |-\n      float dbm = id(st_wifi_quality_rssi).state;\n      if (isnan(dbm))  return {\"Unknown\"};\n      if (dbm > -50)   return {\"Excellent\"};\n      if (dbm > -60)   return {\"Good\"};\n      if (dbm > -70)   return {\"Fair\"};\n      if (dbm > -80)   return {\"Poor\"};\n      return {\"Very Poor\"};\n"},{"slug":"wifi_signal","title":"WiFi Signal Strength","category":"network","description":"Reports WiFi RSSI in dBm and a derived signal-quality percentage. The two entities are coupled - the % is a copy of the dBm reading.","platforms":["esp32","esp32s2","esp32s3","esp32c3","esp32c6"],"requires":["wifi"],"entities":[{"domain":"sensor","name":"WiFi Signal dBm"},{"domain":"sensor","name":"WiFi Signal %"}],"vars":[{"name":"st_update_interval","default":"60s","required":false,"secret":false,"description":"How often to sample RSSI"},{"name":"st_name_prefix","default":"","required":false,"secret":false,"description":"Prefix prepended to every entity name"},{"name":"st_disabled_by_default","default":"false","required":false,"secret":false,"description":"Ship the entities disabled in HA"},{"name":"st_internal","default":"false","required":false,"secret":false,"description":"Hide the entities from HA/web entirely"},{"name":"st_state_class","default":"measurement","required":false,"secret":false,"description":"state_class for both entities; set \"\" to opt out of HA long-term statistics"}],"notes":["The % is 2*(x+100) clamped to 0..100 - the conventional community approximation, NOT a calibrated RSSI-to-quality mapping."],"path":"templates/network/wifi_signal.yaml","body":"defaults:\n  st_update_interval: 60s\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n  st_state_class: measurement\n\nsensor:\n  - platform: wifi_signal\n    id: st_wifi_signal_dbm\n    name: \"${st_name_prefix}WiFi Signal dBm\"\n    device_class: signal_strength\n    unit_of_measurement: dBm\n    entity_category: diagnostic\n    state_class: \"${st_state_class}\"\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n    update_interval: ${st_update_interval}\n\n  # Derived percentage. copy inherits device_class signal_strength from the\n  # source, so clear it explicitly - a percentage is not a dBm reading.\n  - platform: copy\n    source_id: st_wifi_signal_dbm\n    id: st_wifi_signal_percent\n    name: \"${st_name_prefix}WiFi Signal %\"\n    unit_of_measurement: \"%\"\n    icon: mdi:wifi\n    device_class: \"\"\n    entity_category: diagnostic\n    state_class: \"${st_state_class}\"\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n    filters:\n      - lambda: return min(max(2 * (x + 100.0), 0.0), 100.0);\n"}]}</script>
+
+<style>
+  :root{
+    --bg:#f6f7f9; --panel:#ffffff; --panel2:#f0f2f5; --border:#d8dde3;
+    --text:#1b1f24; --muted:#5a6470; --accent:#2f6fed; --accent-fg:#fff;
+    --badge:#e6ebf2; --badge-fg:#33414f; --warn-bg:#fff4e0; --warn-border:#e9b64d;
+    --warn-fg:#7a5310; --danger:#c23b3b; --danger-bg:#fdecec; --code-bg:#f4f6f8;
+    --ok:#2b7a3b;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#14171b; --panel:#1c2127; --panel2:#232a31; --border:#333c46;
+      --text:#e8ecf1; --muted:#9aa5b1; --accent:#5b8cff; --accent-fg:#0d1117;
+      --badge:#2a323b; --badge-fg:#c3ccd6; --warn-bg:#3a2f16; --warn-border:#8a6a20;
+      --warn-fg:#f0d27a; --danger:#ff6b6b; --danger-bg:#3a2020;
+      --code-bg:#12161b; --ok:#5fce76;
+    }
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+    background:var(--bg); color:var(--text);
+  }
+  a{color:var(--accent)}
+  code,pre,.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  header.app{
+    padding:12px 18px; border-bottom:1px solid var(--border); background:var(--panel);
+    position:sticky; top:0; z-index:5;
+  }
+  header.app h1{font-size:18px; margin:0 0 8px}
+  .toolbar{display:flex; flex-wrap:wrap; gap:12px; align-items:center}
+  .chips{display:flex; gap:6px; flex-wrap:wrap}
+  .chip{
+    border:1px solid var(--border); background:var(--panel2); color:var(--text);
+    padding:4px 10px; border-radius:999px; cursor:pointer; font-size:12px;
+  }
+  .chip[aria-pressed="true"]{background:var(--accent); color:var(--accent-fg); border-color:var(--accent)}
+  input[type=text],input[type=search],select{
+    border:1px solid var(--border); background:var(--panel); color:var(--text);
+    padding:6px 9px; border-radius:6px; font:inherit;
+  }
+  .search{flex:1; min-width:160px}
+  .layout{display:grid; grid-template-columns:minmax(320px,1fr) minmax(340px,1fr); gap:0; align-items:start}
+  @media (max-width:880px){ .layout{grid-template-columns:1fr} }
+  .pane{padding:16px 18px}
+  .pane.left{border-right:1px solid var(--border)}
+  @media (max-width:880px){ .pane.left{border-right:none; border-bottom:1px solid var(--border)} }
+  h2.section{font-size:13px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); margin:18px 0 8px}
+  h2.section:first-child{margin-top:0}
+  .cat-title{font-size:12px; font-weight:600; color:var(--muted); margin:16px 0 6px; text-transform:capitalize}
+
+  .row{
+    border:1px solid var(--border); border-radius:8px; background:var(--panel);
+    margin-bottom:8px; overflow:hidden;
+  }
+  .row-head{display:flex; gap:10px; align-items:flex-start; padding:10px 12px; cursor:pointer}
+  .row-head:focus-visible{outline:2px solid var(--accent); outline-offset:-2px}
+  .row.disabled{opacity:.5}
+  .row-main{flex:1; min-width:0}
+  .row-title{font-weight:600; display:flex; align-items:center; gap:8px; flex-wrap:wrap}
+  .row-desc{color:var(--muted); font-size:12.5px; margin-top:2px}
+  .badges{display:flex; gap:5px; flex-wrap:wrap; margin-top:5px}
+  .badge{
+    font-size:11px; background:var(--badge); color:var(--badge-fg);
+    padding:1px 7px; border-radius:999px; white-space:nowrap;
+  }
+  .badge.warn{background:var(--warn-bg); color:var(--warn-fg); border:1px solid var(--warn-border)}
+  .row-body{padding:0 12px 12px; border-top:1px solid var(--border); background:var(--panel2)}
+  .row-body h4{margin:12px 0 6px; font-size:12px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted)}
+  table.ent{width:100%; border-collapse:collapse; font-size:12.5px}
+  table.ent th,table.ent td{text-align:left; padding:3px 6px; border-bottom:1px solid var(--border)}
+  ul.notes{margin:6px 0; padding-left:18px; font-size:12.5px; color:var(--muted)}
+  .instance{border:1px dashed var(--border); border-radius:6px; padding:8px 10px; margin:8px 0; background:var(--panel)}
+  .instance-head{display:flex; justify-content:space-between; align-items:center; font-size:12px; font-weight:600; color:var(--muted)}
+  .var{margin:8px 0}
+  .var label{display:block; font-size:12px; font-weight:600; margin-bottom:2px}
+  .var label .req{color:var(--danger); font-weight:700}
+  .var input{width:100%}
+  .var input.invalid{border-color:var(--danger); background:var(--danger-bg)}
+  .var .help{font-size:11.5px; color:var(--muted); margin-top:2px}
+  .btn{
+    border:1px solid var(--border); background:var(--panel); color:var(--text);
+    padding:6px 12px; border-radius:6px; cursor:pointer; font:inherit;
+  }
+  .btn:hover{border-color:var(--accent)}
+  .btn.primary{background:var(--accent); color:var(--accent-fg); border-color:var(--accent)}
+  .btn.small{padding:3px 9px; font-size:12px}
+  .btn.link{border:none; background:none; color:var(--accent); padding:2px 4px; text-decoration:underline; cursor:pointer}
+
+  .settings{border:1px solid var(--border); border-radius:8px; background:var(--panel); padding:12px; margin-bottom:12px}
+  .settings .grid{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+  @media (max-width:520px){ .settings .grid{grid-template-columns:1fr} }
+  .field label{display:block; font-size:12px; font-weight:600; margin-bottom:3px}
+  .field input[type=text]{width:100%}
+  .check{display:flex; gap:8px; align-items:flex-start; font-size:12.5px}
+  .check input{margin-top:2px}
+
+  .advisor{border:1px solid var(--warn-border); background:var(--warn-bg); color:var(--warn-fg); border-radius:8px; padding:10px 12px; margin-bottom:12px; font-size:13px}
+  .advisor .fixes{margin-top:6px; display:flex; gap:8px; flex-wrap:wrap}
+  .advisor.hidden{display:none}
+
+  .tabs{display:flex; gap:4px; flex-wrap:wrap; margin-bottom:10px}
+  .tab{border:1px solid var(--border); background:var(--panel2); color:var(--text); padding:6px 11px; border-radius:6px 6px 0 0; cursor:pointer; font-size:12.5px}
+  .tab[aria-selected="true"]{background:var(--accent); color:var(--accent-fg); border-color:var(--accent)}
+  .out-config{display:flex; gap:10px; flex-wrap:wrap; margin-bottom:10px}
+  .out-config .field{flex:1; min-width:150px}
+  pre.output{
+    background:var(--code-bg); border:1px solid var(--border); border-radius:8px;
+    padding:12px; overflow:auto; max-height:60vh; white-space:pre; font-size:12.5px; margin:0;
+  }
+  .out-actions{display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; align-items:center}
+  .footnote{font-size:11.5px; color:var(--muted); margin-top:8px}
+  .copied{color:var(--ok); font-size:12px}
+  .notice{border:1px solid var(--warn-border); background:var(--warn-bg); color:var(--warn-fg); padding:16px; border-radius:8px; margin:16px}
+  footer.app{padding:12px 18px; border-top:1px solid var(--border); color:var(--muted); font-size:12px; display:flex; gap:14px; flex-wrap:wrap}
+  .empty{color:var(--muted); font-style:italic; padding:8px 0}
+</style>
+
+<div id="app"></div>
+
+<script>
+"use strict";
+(function(){
+
+/* ============================================================================
+ * STATE
+ * ========================================================================== */
+const PLATFORMS = ["esp32","esp32s2","esp32s3","esp32c3","esp32c6"];
+// Library defaults for the shared global knobs (see CONVENTIONS.md).
+const LIB = {
+  st_update_interval: "60s",
+  st_state_class: "measurement",
+  st_name_prefix: "",
+  st_disabled_by_default: "false",
+  st_internal: "false",
+};
+
+const state = {
+  catalog: null,
+  chip: "all",
+  search: "",
+  selected: {},        // slug -> true
+  expanded: {},        // slug -> true
+  instances: {},       // slug -> [ {vals:{varName:value}} ]
+  globals: {
+    update_interval: "60s",
+    keep_stats: true,          // unchecked -> emit st_state_class: ""
+    name_prefix: "",
+    disabled_by_default: false,
+  },
+  tab: "remote",       // remote | local | inline
+  repo: "OWNER/esphome_sensor_templates",
+  ref: "main",
+  basePath: "esphome_sensor_templates",
+};
+
+/* ============================================================================
+ * HELPERS
+ * ========================================================================== */
+function eschtml(s){ return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function byId(id){ return document.getElementById(id); }
+function templateBySlug(slug){ return state.catalog.templates.find(t=>t.slug===slug); }
+function isRequired(v){ return v.required===true || v.default==="(required)"; }
+function secretName(name){ return name.replace(/^st_/,""); } // st_api_key -> api_key
+
+// Initial prefill value for one var on instance `idx`.
+function prefill(t, v, idx){
+  let val;
+  if(v.secret) val = "!secret " + secretName(v.name);
+  else if(isRequired(v)) val = "";
+  else val = v.default!=null ? v.default : "";
+  if(idx>0){
+    if(/_id$/.test(v.name)) val = (v.default||v.name) + "_" + (idx+1);
+    else if(/_name$/.test(v.name)) val = (v.default||"") + " " + (idx+1);
+  }
+  return val;
+}
+function newInstance(t, idx){
+  const vals={};
+  t.vars.forEach(v=>{ vals[v.name]=prefill(t,v,idx); });
+  return {vals};
+}
+function ensureInstances(slug){
+  const t=templateBySlug(slug);
+  if(!state.instances[slug]) state.instances[slug]=[newInstance(t,0)];
+  return state.instances[slug];
+}
+
+// Global substitutions to emit (only knobs that differ from library defaults).
+function globalSubs(){
+  const g=state.globals, out=[];
+  if(g.update_interval!==LIB.st_update_interval) out.push(["st_update_interval", g.update_interval]);
+  if(!g.keep_stats) out.push(["st_state_class",""]);
+  if(g.name_prefix!==LIB.st_name_prefix) out.push(["st_name_prefix", g.name_prefix]);
+  if(g.disabled_by_default) out.push(["st_disabled_by_default","true"]);
+  return out;
+}
+// The value a var resolves to if the instance does not override it: an applicable
+// emitted global, otherwise the file default.
+function applicableValue(v){
+  const g=state.globals;
+  switch(v.name){
+    case "st_update_interval": return g.update_interval!==LIB.st_update_interval ? g.update_interval : v.default;
+    case "st_state_class":     return !g.keep_stats ? "" : v.default;
+    case "st_name_prefix":     return g.name_prefix!==LIB.st_name_prefix ? g.name_prefix : v.default;
+    case "st_disabled_by_default": return g.disabled_by_default ? "true" : v.default;
+    default: return v.default;
+  }
+}
+// Per-instance overrides for the packages modes.
+function overridesFor(t, inst){
+  const ov={};
+  t.vars.forEach(v=>{
+    const cur=inst.vals[v.name];
+    if(cur==="") return;                 // never emit an empty override
+    if(cur!==applicableValue(v)) ov[v.name]=cur;
+  });
+  return ov;
+}
+// Fully resolved value for inline mode.
+function resolvedValue(t, inst, v){
+  const cur=inst.vals[v.name];
+  return cur===v.default ? applicableValue(v) : cur;
+}
+
+/* ============================================================================
+ * YAML STRING ESCAPING
+ * ========================================================================== */
+const NEEDS_QUOTE = /[:#{}\[\]&*!|>'"%@,]/;
+function yamlScalar(v){
+  v=String(v==null?"":v);
+  if(v.startsWith("!secret ")) return v;                 // YAML tag, keep unquoted
+  if(v==="" || NEEDS_QUOTE.test(v) || /^\s|\s$/.test(v)){
+    return '"' + v.replace(/\\/g,"\\\\").replace(/"/g,'\\"') + '"';
+  }
+  return v;
+}
+function flowMap(obj){
+  const parts=Object.keys(obj).map(k=> k+": "+yamlScalar(obj[k]));
+  return "{ " + parts.join(", ") + " }";
+}
+function repoParts(){
+  const p=state.repo.split("/");
+  return { owner:(p[0]||"OWNER"), repo:(p.slice(1).join("/")||"esphome_sensor_templates") };
+}
+// Ordered list of selected {t, instances}.
+function selection(){
+  const out=[];
+  state.catalog.templates.forEach(t=>{
+    if(state.selected[t.slug]) out.push({t, instances: state.instances[t.slug]||[newInstance(t,0)]});
+  });
+  return out;
+}
+function packageKey(slug, idx){ return idx===0 ? slug : slug+"_"+(idx+1); }
+
+/* ============================================================================
+ * GENERATOR: MODE 1 — remote (github://)
+ * ========================================================================== */
+function genRemote(){
+  const sel=selection();
+  if(!sel.length) return "# Select one or more templates to generate YAML.";
+  const {owner,repo}=repoParts();
+  const lines=[];
+  const subs=globalSubs();
+  if(subs.length){ lines.push("substitutions:"); subs.forEach(([k,v])=>lines.push("  "+k+": "+yamlScalar(v))); lines.push(""); }
+  lines.push("packages:");
+  const remoteFiles=[];
+  sel.forEach(s=>{
+    s.instances.forEach((inst,idx)=>{
+      const ov=overridesFor(s.t,inst);
+      if(Object.keys(ov).length===0){
+        lines.push("  "+packageKey(s.t.slug,idx)+": github://"+owner+"/"+repo+"/"+s.t.path+"@"+state.ref);
+      }else{
+        remoteFiles.push({path:s.t.path, vars:ov});
+      }
+    });
+  });
+  if(remoteFiles.length){
+    lines.push("  remote:");
+    lines.push("    url: https://github.com/"+owner+"/"+repo);
+    lines.push("    ref: "+state.ref);
+    lines.push("    refresh: 1d");
+    lines.push("    files:");
+    remoteFiles.forEach(f=>{
+      lines.push("      - path: "+f.path);
+      lines.push("        vars: "+flowMap(f.vars));
+    });
+  }
+  return lines.join("\n");
+}
+
+/* ============================================================================
+ * GENERATOR: MODE 2 — local vendored (!include)
+ * ========================================================================== */
+function genLocal(){
+  const sel=selection();
+  if(!sel.length) return "# Select one or more templates to generate YAML.";
+  const base=(state.basePath||"esphome_sensor_templates").replace(/\/$/,"");
+  const lines=[];
+  const subs=globalSubs();
+  if(subs.length){ lines.push("substitutions:"); subs.forEach(([k,v])=>lines.push("  "+k+": "+yamlScalar(v))); lines.push(""); }
+  lines.push("packages:");
+  sel.forEach(s=>{
+    s.instances.forEach((inst,idx)=>{
+      const ov=overridesFor(s.t,inst);
+      const key=packageKey(s.t.slug,idx);
+      const path=base+"/"+s.t.path;
+      if(Object.keys(ov).length===0){
+        lines.push("  "+key+": !include "+path);
+      }else{
+        lines.push("  "+key+": !include");
+        lines.push("    file: "+path);
+        lines.push("    vars: "+flowMap(ov));
+      }
+    });
+  });
+  return lines.join("\n");
+}
+
+/* ============================================================================
+ * INLINE MODE — structural indentation merge
+ * ========================================================================== */
+// Drop the leading `defaults:` block (key + its indented children).
+function dropDefaults(body){
+  const lines=body.split("\n");
+  const out=[]; let skipping=false;
+  for(let i=0;i<lines.length;i++){
+    const l=lines[i];
+    if(/^defaults:\s*$/.test(l)){ skipping=true; continue; }
+    if(skipping){
+      if(l.trim()==="") continue;                       // blank inside/after block
+      if(/^\s/.test(l)) continue;                        // indented child of defaults
+      skipping=false;                                    // back at column 0 -> real content
+    }
+    out.push(l);
+  }
+  return out.join("\n");
+}
+function substitute(body, t, inst){
+  return body.replace(/\$\{([^}]+)\}/g, (m,name)=>{
+    const v=t.vars.find(x=>x.name===name);
+    return v ? resolvedValue(t,inst,v) : m;
+  });
+}
+// Block-scalar header at end of a line: `|`, `|-`, `|+`, `>`, `>-`, `>+`,
+// optionally with an indentation indicator digit (|2, >2-...).
+function blockHeader(text){
+  const m=text.match(/(?:^|\s)([|>][0-9+-]{0,2})$/);
+  return m ? m[1] : null;
+}
+function tokenize(text){
+  const raws=text.split("\n");
+  const out=[];
+  for(let li=0; li<raws.length; li++){
+    const raw=raws[li];
+    if(raw.trim()==="") continue;
+    if(raw.trim().startsWith("#")) continue;             // drop comment-only lines
+    const indent=raw.length-raw.replace(/^ +/,"").length;
+    const tok={indent, text: raw.replace(/\s+$/,"").slice(indent)};
+    // Block scalar: capture every following line indented deeper than the
+    // header line (blank lines included) as literal content — never re-parsed,
+    // never re-escaped. Stored with internal relative indentation preserved.
+    if(blockHeader(tok.text)){
+      const content=[]; let j=li+1;
+      while(j<raws.length){
+        const r=raws[j];
+        if(r.trim()===""){ content.push(""); j++; continue; }
+        const ind=r.length-r.replace(/^ +/,"").length;
+        if(ind<=indent) break;
+        content.push(r.replace(/\s+$/,"")); j++;
+      }
+      while(content.length && content[content.length-1]==="") content.pop();
+      if(content.length){
+        const minIndent=Math.min.apply(null,
+          content.filter(l=>l!=="").map(l=>l.length-l.replace(/^ +/,"").length));
+        tok.block=content.map(l=> l==="" ? "" : l.slice(minIndent));
+        li=j-1;
+      }
+    }
+    out.push(tok);
+  }
+  return out;
+}
+function isKeyLine(text){ return /^[^\s:][^:]*:(\s|$)/.test(text); }
+// parseBlock -> [node, nextIndex]. Node kinds: map|list|scalar|block.
+// A `block` node preserves a YAML block scalar: {kind:"block", header, lines}.
+function parseBlock(lines,i){
+  const blockIndent=lines[i].indent;
+  if(lines[i].text.startsWith("- ")){
+    const items=[];
+    while(i<lines.length && lines[i].indent===blockIndent && lines[i].text.startsWith("- ")){
+      const head=lines[i]; const rest=head.text.slice(2); i++;
+      const sub=[];
+      if(rest!=="") sub.push({indent:0, text:rest, block:head.block});
+      while(i<lines.length && lines[i].indent>blockIndent){
+        sub.push({indent: lines[i].indent-(blockIndent+2), text: lines[i].text, block: lines[i].block}); i++;
+      }
+      items.push(sub.length? parseBlock(sub,0)[0] : {kind:"scalar",value:""});
+    }
+    return [{kind:"list",items}, i];
+  }
+  if(!isKeyLine(lines[i].text)){
+    const tok=lines[i]; i++;
+    if(tok.block) return [{kind:"block", header:tok.text, lines:tok.block}, i];
+    return [{kind:"scalar",value:tok.text}, i];
+  }
+  const entries=[];
+  while(i<lines.length && lines[i].indent===blockIndent && !lines[i].text.startsWith("- ") && isKeyLine(lines[i].text)){
+    const tok=lines[i];
+    const mm=tok.text.match(/^([^:]+):(?:\s+([\s\S]*))?$/);
+    const key=mm[1], inlineVal=mm[2]; i++;
+    if(tok.block){
+      entries.push([key,{kind:"block", header:(inlineVal||"|-"), lines:tok.block}]);
+    }else if(inlineVal!==undefined && inlineVal!==""){
+      entries.push([key,{kind:"scalar",value:inlineVal}]);
+    }else if(i<lines.length && lines[i].indent>blockIndent){
+      const r=parseBlock(lines,i); entries.push([key,r[0]]); i=r[1];
+    }else{
+      entries.push([key,{kind:"scalar",value:""}]);
+    }
+  }
+  return [{kind:"map",entries}, i];
+}
+function parseTree(body){
+  const toks=tokenize(body);
+  if(!toks.length) return {kind:"map",entries:[]};
+  return parseBlock(toks,0)[0];
+}
+function mergeNodes(a,b){
+  if(a.kind==="list" && b.kind==="list") return {kind:"list", items:a.items.concat(b.items)};
+  if(a.kind==="map" && b.kind==="map"){
+    const entries=a.entries.map(e=>[e[0],e[1]]);
+    b.entries.forEach(([k,v])=>{
+      const idx=entries.findIndex(e=>e[0]===k);
+      if(idx>=0) entries[idx]=[k, mergeNodes(entries[idx][1], v)];
+      else entries.push([k,v]);
+    });
+    return {kind:"map",entries};
+  }
+  // scalar / block / type conflict: keep the last, flag it on the key line only.
+  if(b.kind==="block") return {kind:"block", header:b.header, lines:b.lines, overridden:true};
+  const val = b.kind==="scalar" ? b.value : serialize(b,0);
+  return {kind:"scalar", value:val, overridden:true};
+}
+// Re-emit a block scalar's captured lines at the new nesting depth, preserving
+// internal relative indentation verbatim (no re-escaping — C++ bodies contain
+// ':' and '#' freely).
+function blockLines(node, indent){
+  const pad=" ".repeat(indent);
+  return node.lines.map(l=> l==="" ? "" : pad+l);
+}
+function serialize(node, indent){
+  const pad=" ".repeat(indent);
+  if(node.kind==="map"){
+    const out=[];
+    node.entries.forEach(([k,v])=>{
+      if(v.kind==="scalar"){
+        out.push(pad+k+": "+v.value + (v.overridden?"  # (overridden)":""));
+      }else if(v.kind==="block"){
+        out.push(pad+k+": "+v.header + (v.overridden?"  # (overridden)":""));
+        out.push.apply(out, blockLines(v, indent+2));
+      }else{
+        out.push(pad+k+":");
+        out.push(serialize(v, indent+2));
+      }
+    });
+    return out.join("\n");
+  }
+  if(node.kind==="list"){
+    return node.items.map(it=>serializeItem(it,indent)).join("\n");
+  }
+  if(node.kind==="block"){
+    return [pad+node.header + (node.overridden?"  # (overridden)":"")]
+      .concat(blockLines(node, indent+2)).join("\n");
+  }
+  return pad+node.value;
+}
+function serializeItem(node, indent){
+  const pad=" ".repeat(indent);
+  if(node.kind==="scalar") return pad+"- "+node.value;
+  if(node.kind==="block"){
+    return [pad+"- "+node.header].concat(blockLines(node, indent+2)).join("\n");
+  }
+  const inner=serialize(node, indent+2).split("\n");
+  inner[0]=pad+"- "+inner[0].slice(indent+2);
+  return inner.join("\n");
+}
+// Add a warning comment above any `!extend <id>` whose target is not defined by a
+// selected template (e.g. daily_restart without a time template).
+function extendWarnings(text){
+  const lines=text.split("\n");
+  const defined=new Set();
+  lines.forEach(l=>{
+    const m=l.match(/id:\s*(st_[A-Za-z0-9_]+)\s*$/);
+    if(m && !/!extend/.test(l)) defined.add(m[1]);
+  });
+  const out=[];
+  lines.forEach(l=>{
+    const m=l.match(/id:\s*!extend\s+(st_[A-Za-z0-9_]+)/);
+    if(m && !defined.has(m[1])){
+      const pad=l.match(/^\s*/)[0];
+      out.push(pad+"# WARNING: !extend target '"+m[1]+"' is not defined by any selected template.");
+      out.push(pad+"# Add the matching time template (e.g. core/time_sntp) or this will fail to compile.");
+    }
+    out.push(l);
+  });
+  return out.join("\n");
+}
+function genInline(){
+  const sel=selection();
+  if(!sel.length) return "# Select one or more templates to generate YAML.";
+  const names=[];
+  let tree=null;
+  sel.forEach(s=>{
+    s.instances.forEach(inst=>{
+      names.push(s.t.slug);
+      let body=dropDefaults(s.t.body||"");
+      body=substitute(body, s.t, inst);
+      const node=parseTree(body);
+      tree = tree ? mergeNodes(tree,node) : node;
+    });
+  });
+  let out=serialize(tree,0);
+  out=extendWarnings(out);
+  // YAML forbids duplicate top-level keys: sections every real config already
+  // has (esphome:, wifi:, ...) must be hand-merged, not pasted alongside.
+  const RESERVED=["esphome","wifi","api","logger","time","ota","web_server","safe_mode"];
+  const tops=(tree&&tree.entries)?tree.entries.map(e=>e[0]):[];
+  const clashes=tops.filter(k=>RESERVED.includes(k));
+  const warn=clashes.length
+    ? "# NOTE: this output defines top-level key(s): "+clashes.join(", ")+".\n"
+      +"# If your config already has any of them, merge those blocks into yours by hand\n"
+      +"# (YAML forbids duplicate top-level keys). The packages/include modes avoid this.\n"
+    : "";
+  const header="# Generated by ESPHome Sensor Templates builder — "+names.join(", ")
+    +"\n# Minimum ESPHome "+(state.catalog.min_esphome||"")+"\n"+warn+"\n";
+  return header+out+"\n";
+}
+function currentYaml(){
+  return state.tab==="remote" ? genRemote() : state.tab==="local" ? genLocal() : genInline();
+}
+
+/* ============================================================================
+ * REQUIREMENTS ADVISOR
+ * ========================================================================== */
+function requirementStatus(){
+  const sel=selection();
+  const slugs=new Set(sel.map(s=>s.t.slug));
+  const satisfied={
+    wifi:true,
+    api: slugs.has("api"),
+    time: slugs.has("time_sntp")||slugs.has("time_homeassistant"),
+  };
+  const missing=new Set(), reminders=new Set();
+  sel.forEach(s=>{
+    (s.t.requires||[]).forEach(r=>{
+      r=(r||"").trim(); if(!r || r==="none") return;
+      if(r in satisfied){ if(!satisfied[r]) missing.add(r); }
+      else reminders.add(r);
+    });
+  });
+  return {missing:[...missing], reminders:[...reminders]};
+}
+
+/* ============================================================================
+ * RENDER — shell
+ * ========================================================================== */
+function renderShell(){
+  const app=byId("app");
+  app.innerHTML =
+  '<header class="app">'
+    +'<h1>ESPHome Sensor Templates — Config Builder</h1>'
+    +'<div class="toolbar">'
+      +'<div class="chips" id="chips" role="group" aria-label="Target chip"></div>'
+      +'<input class="search" id="search" type="search" placeholder="Search title or description…" aria-label="Search templates">'
+    +'</div>'
+  +'</header>'
+  +'<div class="layout">'
+    +'<section class="pane left"><h2 class="section">Templates</h2><div id="catalog-list"></div></section>'
+    +'<section class="pane right">'
+      +'<div id="settings"></div>'
+      +'<div id="advisor" class="advisor hidden"></div>'
+      +'<div class="tabs" id="tabs" role="tablist"></div>'
+      +'<div id="out-config"></div>'
+      +'<pre class="output" id="output" tabindex="0" aria-live="polite"></pre>'
+      +'<div class="out-actions">'
+        +'<button class="btn primary" id="copy">Copy</button>'
+        +'<button class="btn" id="download">Download .yaml</button>'
+        +'<span class="copied" id="copied" hidden>Copied!</span>'
+      +'</div>'
+      +'<div class="footnote" id="footnote"></div>'
+    +'</section>'
+  +'</div>'
+  +'<footer class="app" id="footer"></footer>';
+
+  // chips
+  const chips=byId("chips");
+  ["all",...PLATFORMS].forEach(p=>{
+    const b=document.createElement("button");
+    b.className="chip"; b.textContent = p==="all"?"All":p;
+    b.setAttribute("aria-pressed", state.chip===p);
+    b.onclick=()=>{ state.chip=p; renderChips(); renderCatalog(); };
+    chips.appendChild(b);
+  });
+  byId("search").value=state.search;
+  byId("search").oninput=e=>{ state.search=e.target.value.toLowerCase(); renderCatalog(); };
+
+  // tabs
+  const tabs=byId("tabs");
+  [["remote","Include from GitHub (remote)"],["local","Include local files (vendored)"],["inline","Inline YAML (no repo needed)"]]
+  .forEach(([id,label])=>{
+    const b=document.createElement("button");
+    b.className="tab"; b.textContent=label; b.setAttribute("role","tab");
+    b.setAttribute("aria-selected", state.tab===id);
+    b.onclick=()=>{ state.tab=id; renderTabs(); renderOutConfig(); renderOutput(); };
+    tabs.appendChild(b);
+  });
+
+  byId("copy").onclick=doCopy;
+  byId("download").onclick=doDownload;
+  byId("footnote").textContent="Minimum ESPHome "+(state.catalog.min_esphome||"")
+    +". Multi-instance templates (inputs) can be added multiple times.";
+  renderFooter();
+  renderSettings();
+  renderCatalog();
+  renderAdvisor();
+  renderOutConfig();
+  renderOutput();
+}
+function renderChips(){
+  [...byId("chips").children].forEach(b=>{
+    const p=b.textContent==="All"?"all":b.textContent;
+    b.setAttribute("aria-pressed", state.chip===p);
+  });
+}
+function renderTabs(){
+  const ids=["remote","local","inline"];
+  [...byId("tabs").children].forEach((b,i)=> b.setAttribute("aria-selected", state.tab===ids[i]));
+}
+function renderFooter(){
+  const {owner,repo}=repoParts();
+  byId("footer").innerHTML =
+    '<a href="https://github.com/'+eschtml(owner)+"/"+eschtml(repo)+'" target="_blank" rel="noopener">GitHub repository</a>'
+    +'<span>Generated docs in <code>/docs</code></span>';
+}
+
+/* ============================================================================
+ * RENDER — settings panel
+ * ========================================================================== */
+function renderSettings(){
+  const g=state.globals;
+  byId("settings").innerHTML =
+  '<div class="settings">'
+    +'<h2 class="section" style="margin-top:0">Global settings</h2>'
+    +'<div class="grid">'
+      +'<div class="field"><label for="g-interval">Update interval</label>'
+        +'<input id="g-interval" type="text" value="'+eschtml(g.update_interval)+'"></div>'
+      +'<div class="field"><label for="g-prefix">Name prefix</label>'
+        +'<input id="g-prefix" type="text" value="'+eschtml(g.name_prefix)+'" placeholder="(none)"></div>'
+    +'</div>'
+    +'<div class="check" style="margin-top:10px"><input id="g-stats" type="checkbox" '+(g.keep_stats?"checked":"")+'>'
+      +'<label for="g-stats" style="font-weight:400">Keep long-term statistics in Home Assistant '
+      +'<span style="color:var(--muted)">(unchecked emits <code>st_state_class: ""</code>)</span></label></div>'
+    +'<div class="check" style="margin-top:6px"><input id="g-disabled" type="checkbox" '+(g.disabled_by_default?"checked":"")+'>'
+      +'<label for="g-disabled" style="font-weight:400">Entities disabled by default</label></div>'
+  +'</div>';
+  byId("g-interval").oninput=e=>{ g.update_interval=e.target.value; renderOutput(); };
+  byId("g-prefix").oninput=e=>{ g.name_prefix=e.target.value; renderOutput(); };
+  byId("g-stats").onchange=e=>{ g.keep_stats=e.target.checked; renderOutput(); };
+  byId("g-disabled").onchange=e=>{ g.disabled_by_default=e.target.checked; renderOutput(); };
+}
+
+/* ============================================================================
+ * RENDER — catalog list
+ * ========================================================================== */
+function matchesSearch(t){
+  if(!state.search) return true;
+  return (t.title+" "+t.description).toLowerCase().includes(state.search);
+}
+function renderCatalog(){
+  const host=byId("catalog-list"); host.innerHTML="";
+  (state.catalog.categories||[]).forEach(cat=>{
+    const templates=state.catalog.templates.filter(t=>t.category===cat && matchesSearch(t));
+    if(!templates.length) return;
+    const h=document.createElement("div"); h.className="cat-title"; h.textContent=cat;
+    host.appendChild(h);
+    templates.forEach(t=>host.appendChild(renderRow(t)));
+  });
+  if(!host.children.length) host.innerHTML='<div class="empty">No templates match your search.</div>';
+}
+function renderRow(t){
+  const supported = state.chip==="all" || t.platforms.includes(state.chip);
+  const row=document.createElement("div");
+  row.className="row"+(supported?"":" disabled");
+
+  const head=document.createElement("div");
+  head.className="row-head"; head.tabIndex=0; head.setAttribute("role","button");
+  head.setAttribute("aria-expanded", !!state.expanded[t.slug]);
+
+  const cb=document.createElement("input");
+  cb.type="checkbox"; cb.checked=!!state.selected[t.slug]; cb.disabled=!supported;
+  cb.setAttribute("aria-label","Select "+t.title);
+  cb.onclick=e=>{ e.stopPropagation(); toggleSelect(t.slug, cb.checked); };
+
+  const main=document.createElement("div"); main.className="row-main";
+  const reqBadges=(t.requires||[]).filter(r=>r&&r!=="none").map(r=>'<span class="badge">requires '+eschtml(r)+'</span>').join("");
+  const entCount=(t.entities||[]).length;
+  const entBadge=entCount?'<span class="badge">'+entCount+' '+(entCount===1?"entity":"entities")+'</span>':"";
+  const notBadge=supported?"":'<span class="badge warn">not on '+eschtml(state.chip)+'</span>';
+  main.innerHTML=
+    '<div class="row-title">'+eschtml(t.title)+notBadge+'</div>'
+    +'<div class="row-desc">'+eschtml(t.description)+'</div>'
+    +'<div class="badges">'+reqBadges+entBadge+'</div>';
+
+  head.appendChild(cb); head.appendChild(main);
+  const toggle=()=>{ state.expanded[t.slug]=!state.expanded[t.slug]; if(state.expanded[t.slug]) ensureInstances(t.slug); renderCatalog(); };
+  head.onclick=toggle;
+  head.onkeydown=e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); toggle(); } };
+  row.appendChild(head);
+
+  if(state.expanded[t.slug]) row.appendChild(renderDetails(t));
+  return row;
+}
+function renderDetails(t){
+  const box=document.createElement("div"); box.className="row-body";
+  let html="<h4>Description</h4><div>"+eschtml(t.description)+"</div>";
+  if((t.entities||[]).length){
+    html+="<h4>Entities</h4><table class='ent'><tr><th>Domain</th><th>Name</th></tr>";
+    t.entities.forEach(e=>{ html+="<tr><td>"+eschtml(e.domain)+"</td><td>"+eschtml(e.name)+"</td></tr>"; });
+    html+="</table>";
+  }
+  if((t.notes||[]).length){
+    html+="<h4>Notes</h4><ul class='notes'>";
+    t.notes.forEach(n=> html+="<li>"+eschtml(n)+"</li>");
+    html+="</ul>";
+  }
+  box.innerHTML=html;
+
+  if((t.vars||[]).length){
+    const vh=document.createElement("h4"); vh.textContent="Variables"; box.appendChild(vh);
+    const insts=ensureInstances(t.slug);
+    const multi = t.category==="inputs";
+    insts.forEach((inst,idx)=> box.appendChild(renderInstance(t,inst,idx,multi)));
+    if(multi){
+      const add=document.createElement("button");
+      add.className="btn small"; add.textContent="＋ add another instance";
+      add.onclick=()=>{ insts.push(newInstance(t, insts.length)); if(!state.selected[t.slug]) toggleSelect(t.slug,true); else renderCatalog(); renderOutput(); };
+      box.appendChild(add);
+    }
+  }
+  return box;
+}
+function renderInstance(t, inst, idx, multi){
+  const fs=document.createElement("div"); fs.className="instance";
+  const head=document.createElement("div"); head.className="instance-head";
+  head.innerHTML="<span>"+(multi?("Instance "+(idx+1)):"Configuration")+"</span>";
+  if(multi && idx>0){
+    const rm=document.createElement("button"); rm.className="btn link"; rm.textContent="remove";
+    rm.onclick=()=>{ state.instances[t.slug].splice(idx,1); renderCatalog(); renderOutput(); };
+    head.appendChild(rm);
+  }
+  fs.appendChild(head);
+  t.vars.forEach(v=>{
+    const wrap=document.createElement("div"); wrap.className="var";
+    const id="var-"+t.slug+"-"+idx+"-"+v.name;
+    const req=isRequired(v);
+    const lab=document.createElement("label"); lab.setAttribute("for",id);
+    lab.innerHTML=eschtml(v.name)+(req?' <span class="req">*required</span>':"")+(v.secret?' <span class="badge">secret</span>':"");
+    const inp=document.createElement("input"); inp.type="text"; inp.id=id;
+    inp.value=inst.vals[v.name];
+    if(req && inst.vals[v.name]==="") inp.classList.add("invalid");
+    inp.oninput=e=>{
+      inst.vals[v.name]=e.target.value;
+      inp.classList.toggle("invalid", req && e.target.value==="");
+      renderOutput();
+    };
+    wrap.appendChild(lab); wrap.appendChild(inp);
+    if(v.description){ const h=document.createElement("div"); h.className="help"; h.textContent=v.description; wrap.appendChild(h); }
+    fs.appendChild(wrap);
+  });
+  return fs;
+}
+function toggleSelect(slug, on){
+  if(on){ state.selected[slug]=true; ensureInstances(slug); }
+  else { delete state.selected[slug]; }
+  renderCatalog(); renderAdvisor(); renderOutput();
+}
+
+/* ============================================================================
+ * RENDER — advisor
+ * ========================================================================== */
+function renderAdvisor(){
+  const box=byId("advisor");
+  const {missing, reminders}=requirementStatus();
+  if(!missing.length && !reminders.length){ box.className="advisor hidden"; box.innerHTML=""; return; }
+  box.className="advisor";
+  let html="";
+  if(missing.length){
+    html+="<strong>Missing requirements:</strong> "+missing.map(eschtml).join(", ")+".";
+  }
+  if(reminders.length){
+    html+=(missing.length?"<br>":"")+"<strong>Reminder:</strong> also needs "+reminders.map(eschtml).join(", ")+".";
+  }
+  box.innerHTML=html;
+  const fixes=document.createElement("div"); fixes.className="fixes";
+  if(missing.includes("api") && templateBySlug("api")){
+    fixes.appendChild(fixBtn("add core/api","api"));
+  }
+  if(missing.includes("time") && templateBySlug("time_sntp")){
+    fixes.appendChild(fixBtn("add core/time_sntp","time_sntp"));
+  }
+  if(fixes.children.length) box.appendChild(fixes);
+}
+function fixBtn(label, slug){
+  const b=document.createElement("button"); b.className="btn small"; b.textContent=label;
+  b.onclick=()=>toggleSelect(slug,true);
+  return b;
+}
+
+/* ============================================================================
+ * RENDER — output config + output
+ * ========================================================================== */
+function renderOutConfig(){
+  const host=byId("out-config");
+  if(state.tab==="remote"){
+    host.innerHTML=
+      '<div class="out-config">'
+      +'<div class="field"><label for="o-repo">Repository (OWNER/REPO)</label><input id="o-repo" type="text" value="'+eschtml(state.repo)+'"></div>'
+      +'<div class="field"><label for="o-ref">Ref (branch/tag)</label><input id="o-ref" type="text" value="'+eschtml(state.ref)+'"></div>'
+      +'</div>';
+    byId("o-repo").oninput=e=>{ state.repo=e.target.value; renderFooter(); renderOutput(); };
+    byId("o-ref").oninput=e=>{ state.ref=e.target.value; renderOutput(); };
+  }else if(state.tab==="local"){
+    host.innerHTML=
+      '<div class="out-config"><div class="field"><label for="o-base">Base path</label>'
+      +'<input id="o-base" type="text" value="'+eschtml(state.basePath)+'"></div></div>';
+    byId("o-base").oninput=e=>{ state.basePath=e.target.value; renderOutput(); };
+  }else{
+    host.innerHTML="";
+  }
+}
+function renderOutput(){
+  byId("output").textContent=currentYaml();
+}
+
+/* ============================================================================
+ * ACTIONS
+ * ========================================================================== */
+function doCopy(){
+  const text=currentYaml();
+  const done=()=>{ const c=byId("copied"); c.hidden=false; setTimeout(()=>c.hidden=true, 1500); };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(done, fallbackCopy.bind(null,text,done));
+  }else fallbackCopy(text,done);
+}
+function fallbackCopy(text, done){
+  const ta=document.createElement("textarea"); ta.value=text;
+  ta.style.position="fixed"; ta.style.opacity="0"; document.body.appendChild(ta);
+  ta.select();
+  try{ document.execCommand("copy"); done(); }catch(e){}
+  document.body.removeChild(ta);
+}
+function doDownload(){
+  const blob=new Blob([currentYaml()],{type:"text/yaml"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob); a.download="esphome-templates.yaml";
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(a.href);
+}
+
+/* ============================================================================
+ * BOOT
+ * ========================================================================== */
+function autodetectRepo(){
+  const h=location.hostname||"";
+  if(h.endsWith(".github.io")){
+    const owner=h.slice(0, h.length-".github.io".length);
+    const seg=location.pathname.split("/").filter(Boolean);
+    state.repo = owner+"/"+(seg[0]||"esphome_sensor_templates");
+  }
+}
+async function loadCatalog(){
+  let data=null;
+  try{ data=JSON.parse(byId("catalog").textContent); }catch(e){}
+  if(data && data.templates && data.templates.length) return data;
+  try{
+    const r=await fetch("catalog.json");
+    if(r.ok){ const j=await r.json(); if(j && j.templates && j.templates.length) return j; }
+  }catch(e){}
+  return null;
+}
+function showNotice(){
+  byId("app").innerHTML=
+    '<div class="notice"><strong>Catalog not loaded.</strong><br>'
+    +'This builder needs <code>web/catalog.json</code>. Generate it with:'
+    +'<pre class="output" style="margin-top:8px">python3 tools/build_catalog.py</pre>'
+    +'then reload. When served over http(s) the page fetches it automatically; '
+    +'opened directly from <code>file://</code> the catalog must be embedded by the build script.</div>';
+}
+(async function(){
+  autodetectRepo();
+  const cat=await loadCatalog();
+  if(!cat){ showNotice(); return; }
+  state.catalog=cat;
+  renderShell();
+})();
+
+// Expose pure generators for smoke testing under Node.
+if(typeof module!=="undefined"){ module.exports={
+  yamlScalar, flowMap, dropDefaults, tokenize, parseTree, mergeNodes, serialize,
+  substitute, extendWarnings
+}; }
+})();
+</script>

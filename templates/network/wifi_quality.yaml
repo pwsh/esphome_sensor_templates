@@ -1,0 +1,43 @@
+# @template: wifi_quality
+# @title: WiFi Quality (plain language)
+# @category: network
+# @description: Translates RSSI into a plain-language rating (Excellent/Good/Fair/Poor/Very Poor). Carries its own internal RSSI source, so it works standalone.
+# @platforms: esp32, esp32s2, esp32s3, esp32c3, esp32c6
+# @requires: wifi
+# @entities: text_sensor "WiFi Quality"
+# @var st_update_interval [30s]: How often to sample RSSI and refresh the rating
+# @var st_name_prefix []: Prefix prepended to the entity name
+# @var st_disabled_by_default [false]: Ship the entity disabled in HA
+# @var st_internal [false]: Hide the entity from HA/web entirely
+# @note: Includes a hidden wifi_signal sensor (st_wifi_quality_rssi). Including wifi_signal.yaml as well adds a second, independent RSSI read - harmless, but the dBm entity lives there.
+
+defaults:
+  st_update_interval: 30s
+  st_name_prefix: ""
+  st_disabled_by_default: "false"
+  st_internal: "false"
+
+sensor:
+  # Hidden RSSI source so this file never depends on another template's id.
+  - platform: wifi_signal
+    id: st_wifi_quality_rssi
+    internal: true
+    update_interval: ${st_update_interval}
+
+text_sensor:
+  - platform: template
+    id: st_wifi_quality
+    name: "${st_name_prefix}WiFi Quality"
+    icon: mdi:wifi
+    entity_category: diagnostic
+    disabled_by_default: ${st_disabled_by_default}
+    internal: ${st_internal}
+    update_interval: ${st_update_interval}
+    lambda: |-
+      float dbm = id(st_wifi_quality_rssi).state;
+      if (isnan(dbm))  return {"Unknown"};
+      if (dbm > -50)   return {"Excellent"};
+      if (dbm > -60)   return {"Good"};
+      if (dbm > -70)   return {"Fair"};
+      if (dbm > -80)   return {"Poor"};
+      return {"Very Poor"};

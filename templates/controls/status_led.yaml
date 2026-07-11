@@ -1,0 +1,19 @@
+# @template: status_led
+# @title: Status LED
+# @category: controls
+# @description: Drives an on-board LED as a firmware status indicator - slow blink on warnings (WiFi/API down), fast blink on errors.
+# @platforms: esp32, esp32s2, esp32s3, esp32c3, esp32c6
+# @requires: none
+# @entities: none (firmware status indicator, not an HA entity)
+# @var st_status_led_pin [(required)]: GPIO the status LED is wired to (e.g. GPIO8)
+# @var st_status_led_inverted [false]: C++ literal "true"/"false" - set "true" for active-low LEDs (many on-board LEDs)
+# @note: Blink semantics are fixed by ESPHome and cannot be customized - slow blink = warning (wifi/api down), fast blink = error. There is no HA entity; the LED reflects internal firmware state only.
+# @note: The pin is claimed exclusively by status_led and is otherwise unusable for other outputs.
+
+defaults:
+  st_status_led_inverted: "false"
+
+status_led:
+  pin:
+    number: ${st_status_led_pin}
+    inverted: ${st_status_led_inverted}

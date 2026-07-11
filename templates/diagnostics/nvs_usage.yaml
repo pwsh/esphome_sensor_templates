@@ -1,0 +1,50 @@
+# @template: nvs_usage
+# @title: NVS Usage
+# @category: diagnostics
+# @description: Reports NVS entry fill (used/total) and the on-device NVS partition size. Diagnoses ESP_ERR_NVS_NOT_ENOUGH_SPACE before it bites.
+# @platforms: esp32, esp32s2, esp32s3, esp32c3, esp32c6
+# @requires: none
+# @entities: text_sensor "NVS Usage"
+# @var st_update_interval [60s]: How often to poll NVS statistics
+# @var st_name_prefix []: Prefix prepended to the entity name
+# @var st_disabled_by_default [false]: Ship the entity disabled in HA
+# @var st_internal [false]: Hide the entity from HA/web entirely
+# @note: OTA never updates the partition table. A device first flashed with an old ESPHome may still run a 20 kB NVS even though current ESPHome allocates 448 kB - only a wired flash replaces the table.
+
+defaults:
+  st_update_interval: 60s
+  st_name_prefix: ""
+  st_disabled_by_default: "false"
+  st_internal: "false"
+
+esphome:
+  # nvs.h / esp_partition.h are not pulled into main.cpp by any component, so
+  # force-include them for the lambda below. build_src_flags only affects the
+  # project's own src/ (main.cpp), not the framework build, and the list
+  # concatenates cleanly with flags from other templates.
+  platformio_options:
+    build_src_flags:
+      - "-include nvs.h"
+      - "-include esp_partition.h"
+
+text_sensor:
+  - platform: template
+    id: st_nvs_usage
+    name: "${st_name_prefix}NVS Usage"
+    icon: mdi:database
+    entity_category: diagnostic
+    disabled_by_default: ${st_disabled_by_default}
+    internal: ${st_internal}
+    update_interval: ${st_update_interval}
+    # nvs_get_stats() covers the default "nvs" partition; the partition lookup
+    # reports the size actually flashed to THIS device (see @note above).
+    lambda: |-
+      nvs_stats_t s;
+      if (nvs_get_stats(NULL, &s) != ESP_OK) return {"unavailable"};
+      const esp_partition_t *p = esp_partition_find_first(
+          ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_NVS, nullptr);
+      char buf[64];
+      snprintf(buf, sizeof(buf), "%u/%u entries, %u kB partition",
+               (unsigned) s.used_entries, (unsigned) s.total_entries,
+               p != nullptr ? (unsigned) (p->size / 1024) : 0);
+      return {std::string(buf)};

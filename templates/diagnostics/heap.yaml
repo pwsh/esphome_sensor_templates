@@ -1,0 +1,62 @@
+# @template: heap
+# @title: Heap Diagnostics
+# @category: diagnostics
+# @description: Reports internal heap health from the debug component - free bytes, largest allocatable block, historical minimum free, and fragmentation percent. The first thing to check when a device reboots under memory pressure.
+# @platforms: esp32, esp32s2, esp32s3, esp32c3, esp32c6
+# @requires: none
+# @entities: sensor "Heap Free"; sensor "Heap Max Block"; sensor "Heap Min Free"; sensor "Heap Fragmentation"
+# @var st_update_interval [60s]: How often the debug hub refreshes heap stats
+# @var st_name_prefix []: Prefix prepended to every entity name
+# @var st_disabled_by_default [false]: Ship the entities disabled in HA
+# @var st_internal [false]: Hide the entities from HA/web entirely
+# @var st_state_class [measurement]: state_class for the numeric sensors; set "" to opt out of HA long-term statistics
+# @note: Several diagnostics templates declare the debug: hub. ESPHome deep-merges the dict across packages, so the last update_interval wins - keep the knob identical everywhere.
+# @note: Sustained fragmentation above ~50% is risky - large contiguous allocations (TLS buffers, JSON) can fail even with free bytes available.
+
+defaults:
+  st_update_interval: 60s
+  st_name_prefix: ""
+  st_disabled_by_default: "false"
+  st_internal: "false"
+  st_state_class: measurement
+
+# Shared debug hub. Dicts merge across packages; the update_interval set by
+# whichever debug-based template is merged last wins for all of them.
+debug:
+  update_interval: ${st_update_interval}
+
+sensor:
+  - platform: debug
+    free:
+      id: st_heap_free
+      name: "${st_name_prefix}Heap Free"
+      state_class: "${st_state_class}"
+      entity_category: diagnostic
+      disabled_by_default: ${st_disabled_by_default}
+      internal: ${st_internal}
+      icon: mdi:memory
+    block:
+      id: st_heap_max_block
+      name: "${st_name_prefix}Heap Max Block"
+      state_class: "${st_state_class}"
+      entity_category: diagnostic
+      disabled_by_default: ${st_disabled_by_default}
+      internal: ${st_internal}
+      icon: mdi:memory
+    min_free:
+      id: st_heap_min_free
+      name: "${st_name_prefix}Heap Min Free"
+      state_class: "${st_state_class}"
+      entity_category: diagnostic
+      disabled_by_default: ${st_disabled_by_default}
+      internal: ${st_internal}
+      icon: mdi:memory
+    fragmentation:
+      id: st_heap_fragmentation
+      name: "${st_name_prefix}Heap Fragmentation"
+      unit_of_measurement: "%"
+      state_class: "${st_state_class}"
+      entity_category: diagnostic
+      disabled_by_default: ${st_disabled_by_default}
+      internal: ${st_internal}
+      icon: mdi:memory

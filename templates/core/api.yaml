@@ -1,0 +1,25 @@
+# @template: api
+# @title: Home Assistant API
+# @category: core
+# @description: Native Home Assistant API preset with encryption and a survival-friendly reboot_timeout. Provides the api: component templates like time_homeassistant require.
+# @platforms: esp32, esp32s2, esp32s3, esp32c3, esp32c6
+# @requires: wifi
+# @entities: none (connectivity preset only)
+# @var st_api_reboot_timeout [0s]: How long the API may stay disconnected before the device reboots (0s = never)
+# @var st_api_key [(required)]: Base64 API encryption key; pass via vars: { st_api_key: !secret api_key }
+# @note: Never store the key in this file - it is a required var so the user supplies it with their own !secret.
+
+defaults:
+  st_api_reboot_timeout: 0s
+
+api:
+  # reboot_timeout defaults to 15min in ESPHome. With any short timeout the
+  # device reboot-loops whenever Home Assistant is unreachable longer than the
+  # window - HA restarts, HA OS updates, add-on upgrades - and every reboot
+  # wipes in-RAM state (uptime, un-persisted globals, sensor history). Setting
+  # 0s means "never reboot just because the API is down": the device keeps
+  # running standalone and stays usable via web_server until HA returns.
+  reboot_timeout: ${st_api_reboot_timeout}
+  encryption:
+    # Required var - no default. Users pass: vars: { st_api_key: !secret api_key }
+    key: ${st_api_key}

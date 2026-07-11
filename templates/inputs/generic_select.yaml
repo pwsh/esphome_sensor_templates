@@ -1,0 +1,48 @@
+# @template: generic_select
+# @title: Generic Select Input
+# @category: inputs
+# @description: A user-adjustable template select (dropdown), surfaced in HA as a config control. Use it to pick a mode/profile and read the choice elsewhere via id(...).state.
+# @platforms: esp32, esp32s2, esp32s3, esp32c3, esp32c6
+# @requires: none
+# @entities: select "Mode"
+# @var st_name_prefix []: Prefix prepended to the entity name
+# @var st_disabled_by_default [false]: Ship the entity disabled in HA
+# @var st_internal [false]: Hide the entity from HA/web entirely
+# @var st_select_id [st_generic_select]: Entity id - MUST be overridden on every extra include (see notes)
+# @var st_select_name [Mode]: Entity name (after st_name_prefix)
+# @var st_select_options [["Option A", "Option B"]]: List of options - pass a YAML list in vars:
+# @var st_select_initial [Option A]: Option selected before anything is restored/set
+# @var st_select_restore [true]: Persist the selection across reboots (C++ literal "true"/"false")
+# @note: MULTI-INSTANCE - include this file more than once to get several selects. Each extra include MUST override BOTH st_select_id AND st_select_name; duplicate ids are a hard "ID redefined!" compile error.
+# @note: st_select_options is a LIST-valued substitution. Pass it exactly like any other var, but as a YAML list, e.g. vars: { st_select_options: ["Eco", "Comfort", "Boost"] }.
+# @note: st_select_initial MUST be one of st_select_options, otherwise config validation fails.
+# @note: On a template select, restore_value is INCOMPATIBLE with a lambda, so this template uses optimistic:true (the entity holds its own state) and no lambda.
+# @note: restore_value:true writes to NVS on every change (one flash write per change) - NVS flash has limited write endurance.
+
+defaults:
+  st_name_prefix: ""
+  st_disabled_by_default: "false"
+  st_internal: "false"
+  st_select_id: st_generic_select
+  st_select_name: "Mode"
+  # List-valued substitution: users override by passing their own YAML list.
+  st_select_options:
+    - "Option A"
+    - "Option B"
+  st_select_initial: "Option A"
+  st_select_restore: "true"
+
+select:
+  - platform: template
+    # The id itself is a var so the file can be included multiple times.
+    id: ${st_select_id}
+    name: "${st_name_prefix}${st_select_name}"
+    options: ${st_select_options}
+    initial_option: "${st_select_initial}"
+    # optimistic + no lambda: the component stores its own state.
+    optimistic: true
+    restore_value: ${st_select_restore}
+    entity_category: config
+    icon: mdi:form-dropdown
+    disabled_by_default: ${st_disabled_by_default}
+    internal: ${st_internal}

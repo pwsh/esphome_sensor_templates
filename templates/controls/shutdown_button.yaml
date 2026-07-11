@@ -1,0 +1,25 @@
+# @template: shutdown_button
+# @title: Shutdown Button
+# @category: controls
+# @description: Exposes a button that shuts the device down into deep sleep with no wake source. Only a physical reset or power cycle brings it back.
+# @platforms: esp32, esp32s2, esp32s3, esp32c3, esp32c6
+# @requires: none
+# @entities: button "Shutdown"
+# @var st_name_prefix []: Prefix prepended to the entity name
+# @var st_disabled_by_default [false]: Ship the entity disabled in HA
+# @var st_internal [false]: Hide the entity from HA/web entirely
+# @note: Enters deep sleep with no wake source configured - the device stops responding to WiFi/API/OTA. Only a physical reset button press or power cycle recovers it, so do not press this on a device you cannot reach.
+
+defaults:
+  st_name_prefix: ""
+  st_disabled_by_default: "false"
+  st_internal: "false"
+
+button:
+  - platform: shutdown
+    id: st_shutdown_button
+    name: "${st_name_prefix}Shutdown"
+    entity_category: config
+    icon: mdi:power
+    disabled_by_default: ${st_disabled_by_default}
+    internal: ${st_internal}
