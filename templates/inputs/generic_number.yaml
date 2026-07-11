@@ -15,7 +15,7 @@
 # @var st_number_step [1]: Increment between values
 # @var st_number_initial [0]: Value used before anything is restored/set
 # @var st_number_unit []: Unit of measurement shown in HA (e.g. "C", "%")
-# @var st_number_mode [box]: UI mode - box, slider, or auto
+# @var st_number_mode [box] {box|slider|auto}: UI control style in HA
 # @var st_number_restore [true]: Persist the value across reboots (C++ literal "true"/"false")
 # @note: MULTI-INSTANCE - include this file more than once to get several numbers. Each extra include MUST override BOTH st_number_id AND st_number_name; duplicate ids are a hard "ID redefined!" compile error.
 # @note: On a template number, restore_value is INCOMPATIBLE with a lambda, so this template uses optimistic:true (the entity holds its own state) and no lambda.

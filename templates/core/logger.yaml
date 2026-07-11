@@ -5,7 +5,7 @@
 # @platforms: esp32, esp32s2, esp32s3, esp32c3, esp32c6
 # @requires: none
 # @entities: none (logging preset only)
-# @var st_log_level [INFO]: Log verbosity (NONE, ERROR, WARN, INFO, DEBUG, VERBOSE, VERY_VERBOSE)
+# @var st_log_level [INFO] {NONE|ERROR|WARN|INFO|DEBUG|VERBOSE|VERY_VERBOSE}: Log verbosity (compile-time ceiling)
 # @var st_log_baud_rate [115200]: UART baud rate; set 0 to disable UART (serial) logging entirely
 # @note: Since ESPHome 2026.4.0 state-change messages are logged at VERBOSE, so INFO/DEBUG stays cheap - the noisy per-state spam no longer floods those levels.
 

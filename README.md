@@ -55,13 +55,16 @@ Set any of these once in your top-level `substitutions:` to affect every include
 | Template | Description | Entities |
 |---|---|---|
 | [Boot Counter](docs/boot_counter.md) | Counts device boots in an NVS-backed global and publishes the running total. Rising counts between expected reboots point at brown-outs, watchdog resets, or crashes. | 1 |
+| [Chip Info](docs/chip_info.md) | Reports the SoC model, silicon revision, core count and radio features decoded from esp_chip_info(). One glance confirms exactly which ESP32 variant a build is running on. | 1 |
 | [CPU Frequency](docs/cpu_frequency.md) | Reports the current CPU clock from the debug component. Useful for confirming power-save/DFS behaviour or a mis-set framework clock. | 1 |
 | [Device Info](docs/device_info.md) | Exposes the debug component's device text sensors - a one-line hardware/firmware summary (chip model, cores, revision, flash size, ESPHome version) and the last reset reason. | 2 |
 | [ESPHome Version](docs/esphome_version.md) | Publishes the ESPHome version the firmware was built with via the version text_sensor platform. Handy for spotting devices that missed an OTA. | 1 |
+| [Flash Size](docs/flash_info.md) | Reports the physical SPI flash size in MiB, read from the flash chip at runtime via esp_flash_get_size(). Confirms whether a board really carries the 4/8/16 MiB it was sold as. | 1 |
 | [Heap Diagnostics](docs/heap.md) | Reports internal heap health from the debug component - free bytes, largest allocatable block, historical minimum free, and fragmentation percent. The first thing to check when a device reboots under memory pressure. | 4 |
 | [Internal Temperature](docs/internal_temperature.md) | Reads the on-die temperature sensor and derives a coupled overtemperature warning binary sensor that trips above a configurable threshold. | 2 |
 | [Last Boot](docs/last_boot.md) | Publishes the wall-clock timestamp of the last boot as a timestamp sensor. HA renders it as a relative "last seen"-style time. | 1 |
 | [Loop Time](docs/loop_time.md) | Reports the main-loop iteration time from the debug component, in milliseconds. Spikes reveal a component that blocks the loop (slow I2C, long lambdas). | 1 |
+| [Memory Info](docs/memory_info.md) | Reports total installed internal RAM and total PSRAM in KiB, read from the heap capability registry. Confirms how much DRAM and external SPI RAM the running build actually sees. | 2 |
 | [NVS Usage](docs/nvs_usage.md) | Reports NVS entry fill (used/total) and the on-device NVS partition size. Diagnoses ESP_ERR_NVS_NOT_ENOUGH_SPACE before it bites. | 1 |
 | [PSRAM Free](docs/psram.md) | Reports free PSRAM (SPI RAM) in bytes from the debug component. Confirms that external PSRAM is detected and tracks headroom for buffer-heavy components. | 1 |
 | [Uptime (seconds)](docs/uptime.md) | Reports device uptime in seconds as a monotonic counter. The canonical "is it still up?" signal for HA availability graphs. | 1 |
@@ -78,6 +81,16 @@ Set any of these once in your top-level `substitutions:` to affect every include
 | [WiFi Info](docs/wifi_info.md) | Exposes the device's current WiFi/network identity - IP address, SSID, BSSID, MAC address and DNS - as text sensors. | 5 |
 | [WiFi Quality (plain language)](docs/wifi_quality.md) | Translates RSSI into a plain-language rating (Excellent/Good/Fair/Poor/Very Poor). Carries its own internal RSSI source, so it works standalone. | 1 |
 | [WiFi Signal Strength](docs/wifi_signal.md) | Reports WiFi RSSI in dBm and a derived signal-quality percentage. The two entities are coupled - the % is a copy of the dBm reading. | 2 |
+
+### Lighting
+
+| Template | Description | Entities |
+|---|---|---|
+| [Addressable RGB LED Strip (RMT)](docs/led_strip.md) | A WS2812-family addressable RGB strip driven by the ESP32 RMT peripheral. Ships a conservative, USB-safe brightness cap and a curated set of addressable effects. | 1 |
+| [Addressable RGBW LED Strip (RMT, SK6812)](docs/led_strip_rgbw.md) | An SK6812 RGBW addressable strip driven by the ESP32 RMT peripheral, with a dedicated white channel. Ships a conservative, USB-safe brightness cap and a curated set of addressable effects. | 1 |
+| [PWM Dimmable Light (LEDC)](docs/pwm_light.md) | A single-channel dimmable LED or single-color strip driven by an ESP32 LEDC PWM output. Duty-cycle cap keeps a MOSFET-driven strip inside the USB power budget by default. | 1 |
+| [RGB Light (3x LEDC PWM)](docs/rgb_light.md) | A common-anode/cathode analog RGB light built from three ESP32 LEDC PWM outputs (one per color channel). Per-output duty caps keep it inside the USB power budget by default. | 1 |
+| [RGBW Light (4x LEDC PWM)](docs/rgbw_light.md) | An analog RGBW light built from four ESP32 LEDC PWM outputs (R, G, B and a dedicated white channel). Per-output duty caps plus color interlock keep it inside the USB power budget by default. | 1 |
 
 ### Controls
 

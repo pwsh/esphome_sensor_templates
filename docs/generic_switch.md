@@ -41,7 +41,7 @@ packages:
 | st_internal | `false` | Hide the entity from HA/web entirely |
 | st_switch_id | `st_generic_switch` | Entity id - MUST be overridden on every extra include (see notes) |
 | st_switch_name | `Flag` | Entity name (after st_name_prefix) |
-| st_switch_restore_mode | `RESTORE_DEFAULT_OFF` | Boot behavior - see enum in notes |
+| st_switch_restore_mode | `RESTORE_DEFAULT_OFF` | Boot behavior - see enum in notes One of: `RESTORE_DEFAULT_OFF`, `RESTORE_DEFAULT_ON`, `ALWAYS_OFF`, `ALWAYS_ON`, `RESTORE_INVERTED_DEFAULT_OFF`, `RESTORE_INVERTED_DEFAULT_ON`, `DISABLED`. |
 
 ## Notes
 

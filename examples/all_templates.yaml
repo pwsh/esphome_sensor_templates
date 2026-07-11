@@ -48,6 +48,9 @@ packages:
   diag_boot_counter: !include ../templates/diagnostics/boot_counter.yaml
   diag_nvs_usage: !include ../templates/diagnostics/nvs_usage.yaml
   diag_esphome_version: !include ../templates/diagnostics/esphome_version.yaml
+  diag_chip_info: !include ../templates/diagnostics/chip_info.yaml
+  diag_flash_info: !include ../templates/diagnostics/flash_info.yaml
+  diag_memory_info: !include ../templates/diagnostics/memory_info.yaml
 
   # ── network ─────────────────────────────────────────────────
   net_wifi_signal: !include ../templates/network/wifi_signal.yaml
@@ -57,6 +60,23 @@ packages:
   net_ha_status: !include ../templates/network/ha_status.yaml
   net_watchdog: !include ../templates/network/connectivity_watchdog.yaml
   net_wifi_channel: !include ../templates/network/wifi_channel.yaml
+
+  # ── lighting ────────────────────────────────────────────────
+  light_strip: !include
+    file: ../templates/lighting/led_strip.yaml
+    vars: { st_led_strip_pin: GPIO38 }
+  light_strip_rgbw: !include
+    file: ../templates/lighting/led_strip_rgbw.yaml
+    vars: { st_led_strip_rgbw_pin: GPIO39 }
+  light_pwm: !include
+    file: ../templates/lighting/pwm_light.yaml
+    vars: { st_pwm_pin: GPIO13 }
+  light_rgb: !include
+    file: ../templates/lighting/rgb_light.yaml
+    vars: { st_rgb_pin_r: GPIO4, st_rgb_pin_g: GPIO5, st_rgb_pin_b: GPIO6 }
+  light_rgbw: !include
+    file: ../templates/lighting/rgbw_light.yaml
+    vars: { st_rgbw_pin_r: GPIO9, st_rgbw_pin_g: GPIO10, st_rgbw_pin_b: GPIO11, st_rgbw_pin_w: GPIO12 }
 
   # ── controls ────────────────────────────────────────────────
   ctl_restart: !include ../templates/controls/restart_button.yaml

@@ -26,7 +26,7 @@ CATALOG_JSON = WEB_DIR / "catalog.json"
 INDEX_HTML = WEB_DIR / "index.html"
 
 MIN_ESPHOME = "2026.5.0"
-CATEGORIES = ["core", "diagnostics", "network", "controls", "inputs"]
+CATEGORIES = ["core", "diagnostics", "network", "lighting", "controls", "inputs"]
 
 REQUIRED_KEYS = ("template", "title", "category", "description",
                  "platforms", "requires", "entities")
@@ -79,27 +79,44 @@ def split_header_body(text):
 
 
 def parse_var(val):
-    """Parse the value portion of a '@var' line: 'name [default]: description'."""
+    """Parse the value portion of a '@var' line.
+
+    Forms:  'name [default]: description'
+            'name [default] {A|B|C}: description'   (enumerated choices)
+    """
     open_idx = val.find("[")
     if open_idx == -1:
         raise ParseError(f"@var line has no '[default]': {val!r}")
-    sep = val.find("]: ", open_idx)
-    if sep == -1:
-        raise ParseError(f"@var line has no ']: ' separator: {val!r}")
+    choices = None
+    m = re.search(r"\] \{([^}]+)\}: ", val)
+    if m:
+        default = val[open_idx + 1:m.start()]
+        choices = m.group(1).split("|")
+        description = val[m.end():].strip()
+    else:
+        sep = val.find("]: ", open_idx)
+        if sep == -1:
+            raise ParseError(f"@var line has no ']: ' separator: {val!r}")
+        default = val[open_idx + 1:sep]
+        description = val[sep + 3:].strip()
     name = val[:open_idx].strip()
-    default = val[open_idx + 1:sep]
-    description = val[sep + 3:].strip()
     required = default == "(required)"
     if required:
         default = ""
     secret = "!secret" in description
-    return {
+    out = {
         "name": name,
         "default": default,
         "required": required,
         "secret": secret,
         "description": description,
     }
+    if choices:
+        if default not in choices:
+            raise ParseError(
+                f"@var {name}: default {default!r} not in choices {choices}")
+        out["choices"] = choices
+    return out
 
 
 def parse_entities(val):
@@ -367,7 +384,10 @@ def render_doc(entry):
             else:
                 name = v["name"]
                 default = f"`{v['default']}`" if v["default"] != "" else "`\"\"`"
-            L.append(f"| {name} | {default} | {v['description']} |")
+            desc = v["description"]
+            if v.get("choices"):
+                desc += " One of: " + ", ".join(f"`{c}`" for c in v["choices"]) + "."
+            L.append(f"| {name} | {default} | {desc} |")
         L.append("")
 
     # Notes

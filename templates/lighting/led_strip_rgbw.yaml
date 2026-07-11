@@ -1,0 +1,86 @@
+# @template: led_strip_rgbw
+# @title: Addressable RGBW LED Strip (RMT, SK6812)
+# @category: lighting
+# @description: An SK6812 RGBW addressable strip driven by the ESP32 RMT peripheral, with a dedicated white channel. Ships a conservative, USB-safe brightness cap and a curated set of addressable effects.
+# @platforms: esp32, esp32s2, esp32s3, esp32c3, esp32c6
+# @requires: none
+# @entities: light "LED Strip RGBW"
+# @var st_name_prefix []: Prefix prepended to the entity name
+# @var st_disabled_by_default [false]: Ship the entity disabled in HA
+# @var st_internal [false]: Hide the entity from HA/web entirely
+# @var st_led_strip_rgbw_id [st_led_strip_rgbw]: Entity id - MUST be overridden on every extra include (see notes)
+# @var st_led_strip_rgbw_name [LED Strip RGBW]: Entity name (after st_name_prefix)
+# @var st_led_strip_rgbw_pin [(required)]: Data-line GPIO the strip is wired to
+# @var st_num_leds_rgbw [30]: Number of LEDs on the strip
+# @var st_rgbw_order [GRB] {RGB|RBG|GRB|GBR|BRG|BGR}: Byte order the chipset expects (SK6812 is GRB)
+# @var st_power_limit_rgbw [0.5]: 0.0-1.0 per-channel brightness cap applied via color_correct (USB-safe default)
+# @var st_rgbw_restore_mode [ALWAYS_OFF] {RESTORE_DEFAULT_OFF|RESTORE_DEFAULT_ON|ALWAYS_OFF|ALWAYS_ON|RESTORE_INVERTED_DEFAULT_OFF|RESTORE_INVERTED_DEFAULT_ON}: Boot behaviour (default ALWAYS_OFF to avoid a boot brown-out)
+# @note: MULTI-INSTANCE - include this file more than once to get several strips. Each extra include MUST override st_led_strip_rgbw_id, st_led_strip_rgbw_name AND st_led_strip_rgbw_pin; duplicate ids or shared data pins are errors.
+# @note: Chipset is fixed to SK6812 (the common RGBW addressable part); is_rgbw:true enables the fourth white channel.
+# @note: POWER CAP - each RGB LED draws ~60 mA at full white, and the dedicated white channel adds up to another ~20 mA/LED at full W. A 500 mA USB budget minus ~150 mA for the ESP32 leaves headroom for only ~5-8 LEDs at 100%. st_power_limit_rgbw defaults to 0.5 (color_correct halves all four channels). Raise it toward 1.0 ONLY with an injected power supply.
+# @note: color_correct has 4 entries here (R, G, B, W) to match the RGBW pixel.
+# @note: Effects are compiled in but cost nothing until activated - addressable effects work fine on RGBW strips.
+
+defaults:
+  st_name_prefix: ""
+  st_disabled_by_default: "false"
+  st_internal: "false"
+  st_led_strip_rgbw_id: st_led_strip_rgbw
+  st_led_strip_rgbw_name: "LED Strip RGBW"
+  st_num_leds_rgbw: "30"
+  st_rgbw_order: GRB
+  st_power_limit_rgbw: "0.5"
+  st_rgbw_restore_mode: ALWAYS_OFF
+
+light:
+  - platform: esp32_rmt_led_strip
+    # id/name/pin are vars so the file can be included multiple times.
+    id: ${st_led_strip_rgbw_id}
+    name: "${st_name_prefix}${st_led_strip_rgbw_name}"
+    pin: ${st_led_strip_rgbw_pin}
+    num_leds: ${st_num_leds_rgbw}
+    chipset: SK6812
+    rgb_order: ${st_rgbw_order}
+    is_rgbw: true
+    restore_mode: ${st_rgbw_restore_mode}
+    disabled_by_default: ${st_disabled_by_default}
+    internal: ${st_internal}
+    # THE power limiter: scales every channel by st_power_limit_rgbw.
+    # 4 entries = R, G, B, W. Block-list form (not [a, b, c, d]) because a
+    # ${...} at the start of a flow sequence is misread as a YAML flow map.
+    color_correct:
+      - ${st_power_limit_rgbw}
+      - ${st_power_limit_rgbw}
+      - ${st_power_limit_rgbw}
+      - ${st_power_limit_rgbw}
+    effects:
+      - addressable_rainbow:
+          name: Rainbow
+          speed: 10
+          width: 50
+      - addressable_color_wipe:
+          name: Color Wipe
+          add_led_interval: 100ms
+          reverse: false
+      - addressable_scan:
+          name: Scan
+          move_interval: 100ms
+          scan_width: 1
+      - addressable_twinkle:
+          name: Twinkle
+          twinkle_probability: 5%
+          progress_interval: 32ms
+      - addressable_random_twinkle:
+          name: Random Twinkle
+          twinkle_probability: 5%
+          progress_interval: 32ms
+      - addressable_fireworks:
+          name: Fireworks
+          update_interval: 32ms
+          spark_probability: 10%
+          use_random_color: false
+          fade_out_rate: 120
+      - addressable_flicker:
+          name: Flicker
+          update_interval: 16ms
+          intensity: 5%

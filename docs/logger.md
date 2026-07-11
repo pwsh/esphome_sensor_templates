@@ -34,7 +34,7 @@ packages:
 
 | Variable | Default | Description |
 |---|---|---|
-| st_log_level | `INFO` | Log verbosity (NONE, ERROR, WARN, INFO, DEBUG, VERBOSE, VERY_VERBOSE) |
+| st_log_level | `INFO` | Log verbosity (compile-time ceiling) One of: `NONE`, `ERROR`, `WARN`, `INFO`, `DEBUG`, `VERBOSE`, `VERY_VERBOSE`. |
 | st_log_baud_rate | `115200` | UART baud rate; set 0 to disable UART (serial) logging entirely |
 
 ## Notes

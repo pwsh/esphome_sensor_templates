@@ -1,0 +1,73 @@
+# @template: chip_info
+# @title: Chip Info
+# @category: diagnostics
+# @description: Reports the SoC model, silicon revision, core count and radio features decoded from esp_chip_info(). One glance confirms exactly which ESP32 variant a build is running on.
+# @platforms: esp32, esp32s2, esp32s3, esp32c3, esp32c6
+# @requires: none
+# @entities: text_sensor "Chip Model"
+# @var st_name_prefix []: Prefix prepended to the entity name
+# @var st_disabled_by_default [false]: Ship the entity disabled in HA
+# @var st_internal [false]: Hide the entity from HA/web entirely
+# @note: Static per boot - update_interval is never and the value is published exactly once from on_boot at priority -100 (after sensors are set up).
+# @note: On IDF5 esp_chip_info_t.revision is encoded as major*100+minor, so it is split back into "major.minor" (e.g. 0.4). The features bitmask is decoded to a "/"-joined radio list (WiFi/BT/BLE/802.15.4).
+
+defaults:
+  st_name_prefix: ""
+  st_disabled_by_default: "false"
+  st_internal: "false"
+
+esphome:
+  # esp_chip_info.h is not pulled into main.cpp by any component, so force-include
+  # it for the lambda below. build_src_flags only affects the project's own src/
+  # (main.cpp) and the list concatenates cleanly with flags from other templates.
+  platformio_options:
+    build_src_flags:
+      - "-include esp_chip_info.h"
+  on_boot:
+    # priority -100 runs late, after all sensors/text_sensors are set up, so the
+    # one-shot component.update below publishes into a live entity.
+    - priority: -100
+      then:
+        - component.update: st_chip_info
+
+text_sensor:
+  - platform: template
+    id: st_chip_info
+    name: "${st_name_prefix}Chip Model"
+    icon: mdi:chip
+    entity_category: diagnostic
+    disabled_by_default: ${st_disabled_by_default}
+    internal: ${st_internal}
+    # Static hardware fact - computed once and pushed from on_boot, never polled.
+    update_interval: never
+    lambda: |-
+      esp_chip_info_t ci;
+      esp_chip_info(&ci);
+      const char *model;
+      switch (ci.model) {
+        case CHIP_ESP32:    model = "ESP32";    break;
+        case CHIP_ESP32S2:  model = "ESP32-S2"; break;
+        case CHIP_ESP32S3:  model = "ESP32-S3"; break;
+        case CHIP_ESP32C3:  model = "ESP32-C3"; break;
+        case CHIP_ESP32C6:  model = "ESP32-C6"; break;
+        case CHIP_ESP32H2:  model = "ESP32-H2"; break;
+        default:            model = "ESP32-family"; break;
+      }
+      // Decode the radio feature bitmask into a "/"-joined list.
+      char feat[40];
+      int n = 0;
+      if (ci.features & CHIP_FEATURE_WIFI_BGN)
+        n += snprintf(feat + n, sizeof(feat) - n, "%sWiFi", n ? "/" : "");
+      if (ci.features & CHIP_FEATURE_BT)
+        n += snprintf(feat + n, sizeof(feat) - n, "%sBT", n ? "/" : "");
+      if (ci.features & CHIP_FEATURE_BLE)
+        n += snprintf(feat + n, sizeof(feat) - n, "%sBLE", n ? "/" : "");
+      if (ci.features & CHIP_FEATURE_IEEE802154)
+        n += snprintf(feat + n, sizeof(feat) - n, "%s802.15.4", n ? "/" : "");
+      // revision is major*100+minor on IDF5.
+      char buf[96];
+      snprintf(buf, sizeof(buf), "%s rev %u.%u, %d core%s, %s",
+               model,
+               (unsigned) (ci.revision / 100), (unsigned) (ci.revision % 100),
+               ci.cores, ci.cores == 1 ? "" : "s", feat);
+      return {std::string(buf)};

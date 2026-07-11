@@ -46,7 +46,7 @@ packages:
 | st_number_step | `1` | Increment between values |
 | st_number_initial | `0` | Value used before anything is restored/set |
 | st_number_unit | `""` | Unit of measurement shown in HA (e.g. "C", "%") |
-| st_number_mode | `box` | UI mode - box, slider, or auto |
+| st_number_mode | `box` | UI control style in HA One of: `box`, `slider`, `auto`. |
 | st_number_restore | `true` | Persist the value across reboots (C++ literal "true"/"false") |
 
 ## Notes

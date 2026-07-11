@@ -1,0 +1,51 @@
+# @template: flash_info
+# @title: Flash Size
+# @category: diagnostics
+# @description: Reports the physical SPI flash size in MiB, read from the flash chip at runtime via esp_flash_get_size(). Confirms whether a board really carries the 4/8/16 MiB it was sold as.
+# @platforms: esp32, esp32s2, esp32s3, esp32c3, esp32c6
+# @requires: none
+# @entities: sensor "Flash Size"
+# @var st_name_prefix []: Prefix prepended to the entity name
+# @var st_disabled_by_default [false]: Ship the entity disabled in HA
+# @var st_internal [false]: Hide the entity from HA/web entirely
+# @note: Static per boot - update_interval is never and the value is published exactly once from on_boot at priority -100 (after sensors are set up).
+# @note: No state_class is set - a fixed hardware size is not a measurement and needs no HA long-term statistics, so it deliberately does NOT honor the ${st_state_class} knob.
+# @note: Flash SPEED and mode are compile-time board settings and are not exposed at runtime; the debug component's device_info text sensor shows them in its summary string.
+
+defaults:
+  st_name_prefix: ""
+  st_disabled_by_default: "false"
+  st_internal: "false"
+
+esphome:
+  # esp_flash.h is not pulled into main.cpp by any component, so force-include it
+  # for the lambda below. build_src_flags only affects the project's own src/
+  # (main.cpp) and the list concatenates cleanly with flags from other templates.
+  platformio_options:
+    build_src_flags:
+      - "-include esp_flash.h"
+  on_boot:
+    # priority -100 runs late, after all sensors are set up, so the one-shot
+    # component.update below publishes into a live entity.
+    - priority: -100
+      then:
+        - component.update: st_flash_size
+
+sensor:
+  - platform: template
+    id: st_flash_size
+    name: "${st_name_prefix}Flash Size"
+    unit_of_measurement: MiB
+    device_class: data_size
+    accuracy_decimals: 0
+    icon: mdi:memory
+    entity_category: diagnostic
+    disabled_by_default: ${st_disabled_by_default}
+    internal: ${st_internal}
+    # Static hardware fact - computed once and pushed from on_boot, never polled.
+    update_interval: never
+    # NULL selects esp_flash_default_chip (the on-board SPI flash).
+    lambda: |-
+      uint32_t size;
+      if (esp_flash_get_size(NULL, &size) != ESP_OK) return NAN;
+      return size / 1048576.0;

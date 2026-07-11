@@ -95,7 +95,7 @@ Every file starts with this comment block, one `# @key:` per line, before any YA
 ```yaml
 # @template: wifi_signal            <- unique slug, matches filename without .yaml
 # @title: WiFi Signal Strength      <- short human title
-# @category: core|diagnostics|network|controls|inputs
+# @category: core|diagnostics|network|lighting|controls|inputs
 # @description: One or two sentences: what it does and what it provides.
 # @platforms: esp32, esp32s2, esp32s3, esp32c3, esp32c6   <- only chips it truly supports
 # @requires: wifi                   <- comma list of config the USER must already have
@@ -105,12 +105,30 @@ Every file starts with this comment block, one `# @key:` per line, before any YA
 #                                      format: <domain> "<default name>"
 # @var st_update_interval [60s]: How often to sample RSSI
 # @var st_status_led_pin [(required)]: GPIO for the LED
+# @var st_log_level [INFO] {NONE|ERROR|WARN|INFO|DEBUG|VERBOSE|VERY_VERBOSE}: Log verbosity
 # @note: Free-form caveat line. Repeatable, optional.
 ```
 
 Rules: `@var` lines list EVERY var in `defaults:` (shared knobs included) with its default in
-`[...]` and a description after `: `. `@requires: none` when standalone. After the header, use
-plain `#` comments generously — explain WHY (gotchas, IDF behavior), like the reference files do.
+`[...]` and a description after `: `. Vars with a fixed set of valid values declare them as
+`{A|B|C}` between the default and the colon — the web builder renders these as dropdowns (the
+default MUST be one of the choices). Plain `"true"`/`"false"` vars need no `{...}`; the builder
+auto-detects booleans. `@requires: none` when standalone. After the header, use plain `#`
+comments generously — explain WHY (gotchas, IDF behavior), like the reference files do.
+
+## Lighting templates
+
+- Lights are primary entities: no `entity_category`, and they are **multi-instance** — the entity
+  `id` and `name` are vars (like the inputs category), so one file can be included several times
+  with different pins.
+- **Power caps are mandatory.** Defaults must be safe for a board powered from USB with no
+  external supply: PWM-driven lights cap duty via the output's `max_power:`; addressable strips
+  cap via `color_correct:` entries. Default caps stay conservative (≤ 0.5 for strips) and every
+  file documents the math (a WS2812-class LED draws ~60 mA at full white; a 500 mA USB budget
+  minus ~150 mA for the ESP32 leaves headroom for only ~5-8 LEDs at 100%). Raising the cap to
+  1.0 is an explicit user action for externally-powered rigs.
+- `restore_mode` defaults to `ALWAYS_OFF` (a light that restores ON at boot can brown-out a
+  USB-powered board before WiFi even starts).
 
 ## Reference implementations
 

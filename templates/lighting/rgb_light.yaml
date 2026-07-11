@@ -1,0 +1,70 @@
+# @template: rgb_light
+# @title: RGB Light (3x LEDC PWM)
+# @category: lighting
+# @description: A common-anode/cathode analog RGB light built from three ESP32 LEDC PWM outputs (one per color channel). Per-output duty caps keep it inside the USB power budget by default.
+# @platforms: esp32, esp32s2, esp32s3, esp32c3, esp32c6
+# @requires: none
+# @entities: light "RGB Light"
+# @var st_name_prefix []: Prefix prepended to the entity name
+# @var st_disabled_by_default [false]: Ship the entity disabled in HA
+# @var st_internal [false]: Hide the entity from HA/web entirely
+# @var st_rgb_light_id [st_rgb_light]: Entity id - MUST be overridden on every extra include (see notes)
+# @var st_rgb_light_name [RGB Light]: Entity name (after st_name_prefix)
+# @var st_rgb_pin_r [(required)]: GPIO driving the RED channel
+# @var st_rgb_pin_g [(required)]: GPIO driving the GREEN channel
+# @var st_rgb_pin_b [(required)]: GPIO driving the BLUE channel
+# @var st_rgb_frequency [1000Hz]: LEDC PWM frequency for all three channels (ESP-IDF LEDC default is 1kHz)
+# @var st_rgb_max_power [0.8]: 0.0-1.0 duty-cycle cap applied to all three outputs - THE power limiter
+# @var st_rgb_restore_mode [ALWAYS_OFF] {RESTORE_DEFAULT_OFF|RESTORE_DEFAULT_ON|ALWAYS_OFF|ALWAYS_ON|RESTORE_INVERTED_DEFAULT_OFF|RESTORE_INVERTED_DEFAULT_ON}: Boot behaviour (default ALWAYS_OFF to avoid a boot brown-out)
+# @note: MULTI-INSTANCE - include this file more than once to get several RGB lights. Each extra include MUST override st_rgb_light_id, st_rgb_light_name AND all three pins; duplicate ids or shared pins are errors. Output ids are derived as ${st_rgb_light_id}_r/_g/_b, so overriding the light id keeps them unique.
+# @note: POWER CAP - st_rgb_max_power caps the duty cycle on every channel via the output max_power (0.8 = 80%). With all three channels at full duty a MOSFET-driven RGB strip can pull well past a 500 mA USB budget after only a handful of LEDs (~60 mA/LED at full white). Raise toward 1.0 only with an external supply.
+
+defaults:
+  st_name_prefix: ""
+  st_disabled_by_default: "false"
+  st_internal: "false"
+  st_rgb_light_id: st_rgb_light
+  st_rgb_light_name: "RGB Light"
+  st_rgb_frequency: 1000Hz
+  st_rgb_max_power: "0.8"
+  st_rgb_restore_mode: ALWAYS_OFF
+
+output:
+  - platform: ledc
+    id: ${st_rgb_light_id}_r
+    pin: ${st_rgb_pin_r}
+    frequency: ${st_rgb_frequency}
+    max_power: ${st_rgb_max_power}
+  - platform: ledc
+    id: ${st_rgb_light_id}_g
+    pin: ${st_rgb_pin_g}
+    frequency: ${st_rgb_frequency}
+    max_power: ${st_rgb_max_power}
+  - platform: ledc
+    id: ${st_rgb_light_id}_b
+    pin: ${st_rgb_pin_b}
+    frequency: ${st_rgb_frequency}
+    max_power: ${st_rgb_max_power}
+
+light:
+  - platform: rgb
+    id: ${st_rgb_light_id}
+    name: "${st_name_prefix}${st_rgb_light_name}"
+    red: ${st_rgb_light_id}_r
+    green: ${st_rgb_light_id}_g
+    blue: ${st_rgb_light_id}_b
+    restore_mode: ${st_rgb_restore_mode}
+    disabled_by_default: ${st_disabled_by_default}
+    internal: ${st_internal}
+    effects:
+      # Slow drift through random colors.
+      - random:
+          name: Slow Random
+          transition_length: 5s
+          update_interval: 7s
+      - strobe:
+          name: Strobe
+      - flicker:
+          name: Flicker
+          alpha: 95%
+          intensity: 15%

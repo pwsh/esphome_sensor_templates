@@ -1,0 +1,61 @@
+# @template: pwm_light
+# @title: PWM Dimmable Light (LEDC)
+# @category: lighting
+# @description: A single-channel dimmable LED or single-color strip driven by an ESP32 LEDC PWM output. Duty-cycle cap keeps a MOSFET-driven strip inside the USB power budget by default.
+# @platforms: esp32, esp32s2, esp32s3, esp32c3, esp32c6
+# @requires: none
+# @entities: light "PWM Light"
+# @var st_name_prefix []: Prefix prepended to the entity name
+# @var st_disabled_by_default [false]: Ship the entity disabled in HA
+# @var st_internal [false]: Hide the entity from HA/web entirely
+# @var st_pwm_light_id [st_pwm_light]: Entity id - MUST be overridden on every extra include (see notes)
+# @var st_pwm_light_name [PWM Light]: Entity name (after st_name_prefix)
+# @var st_pwm_pin [(required)]: GPIO driving the LED/MOSFET gate
+# @var st_pwm_frequency [1000Hz]: LEDC PWM frequency (ESP-IDF LEDC default is 1kHz)
+# @var st_pwm_max_power [0.8]: 0.0-1.0 duty-cycle cap via the output's max_power - THE power limiter
+# @var st_pwm_restore_mode [ALWAYS_OFF] {RESTORE_DEFAULT_OFF|RESTORE_DEFAULT_ON|ALWAYS_OFF|ALWAYS_ON|RESTORE_INVERTED_DEFAULT_OFF|RESTORE_INVERTED_DEFAULT_ON}: Boot behaviour (default ALWAYS_OFF to avoid a boot brown-out)
+# @note: MULTI-INSTANCE - include this file more than once to get several PWM lights. Each extra include MUST override st_pwm_light_id, st_pwm_light_name AND st_pwm_pin; duplicate ids or shared pins are errors. The LEDC output id is derived as ${st_pwm_light_id}_out, so overriding the light id keeps the output id unique too.
+# @note: POWER CAP - st_pwm_max_power caps the LEDC duty cycle via the output max_power (0.8 = 80% of full brightness). For a single onboard LED this is just headroom, but for a MOSFET-driven single-color strip it is the real current limiter: size the cap to your supply. A short WS2812-equivalent single-color run at ~60 mA/LED will exceed a 500 mA USB budget past ~5-8 LEDs at full duty. Raise toward 1.0 only with an external supply.
+# @note: LEDC has no per-platform max_power key; max_power is a base float-output option and is the correct place to cap duty.
+
+defaults:
+  st_name_prefix: ""
+  st_disabled_by_default: "false"
+  st_internal: "false"
+  st_pwm_light_id: st_pwm_light
+  st_pwm_light_name: "PWM Light"
+  st_pwm_frequency: 1000Hz
+  st_pwm_max_power: "0.8"
+  st_pwm_restore_mode: ALWAYS_OFF
+
+output:
+  - platform: ledc
+    # id concatenates the light-id var textually, so it stays unique per include.
+    id: ${st_pwm_light_id}_out
+    pin: ${st_pwm_pin}
+    frequency: ${st_pwm_frequency}
+    # THE power limiter: caps the PWM duty cycle to keep current in budget.
+    max_power: ${st_pwm_max_power}
+
+light:
+  - platform: monochromatic
+    id: ${st_pwm_light_id}
+    name: "${st_name_prefix}${st_pwm_light_name}"
+    output: ${st_pwm_light_id}_out
+    restore_mode: ${st_pwm_restore_mode}
+    disabled_by_default: ${st_disabled_by_default}
+    internal: ${st_internal}
+    effects:
+      # Slow breathing preset that ramps between dim and bright.
+      - pulse:
+          name: Slow Pulse
+          transition_length: 1s
+          update_interval: 2s
+          min_brightness: 10%
+          max_brightness: 100%
+      - strobe:
+          name: Strobe
+      - flicker:
+          name: Flicker
+          alpha: 95%
+          intensity: 15%
