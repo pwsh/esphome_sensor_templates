@@ -16,10 +16,10 @@ wifi:
   ssid: !secret wifi_ssid
   password: !secret wifi_password
 
-psram:
-  mode: octal   # matches the -N8R8 devkit variant; use quad for quad-PSRAM boards
-
 packages:
+  core_psram: !include
+    file: ../templates/core/psram.yaml
+    vars: { st_psram_mode: octal }   # -N8R8 devkit; use quad for quad-PSRAM boards
   # ── core ────────────────────────────────────────────────────
   core_api: !include
     file: ../templates/core/api.yaml
@@ -52,7 +52,7 @@ packages:
   diag_heap: !include ../templates/diagnostics/heap.yaml
   diag_loop_time: !include ../templates/diagnostics/loop_time.yaml
   diag_cpu_frequency: !include ../templates/diagnostics/cpu_frequency.yaml
-  diag_psram: !include ../templates/diagnostics/psram.yaml
+  diag_psram_free: !include ../templates/diagnostics/psram_free.yaml
   diag_device_info: !include ../templates/diagnostics/device_info.yaml
   diag_internal_temperature: !include ../templates/diagnostics/internal_temperature.yaml
   diag_boot_counter: !include ../templates/diagnostics/boot_counter.yaml

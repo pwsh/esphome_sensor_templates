@@ -50,6 +50,7 @@ Set any of these once in your top-level `substitutions:` to affect every include
 | [mDNS](docs/mdns.md) | mDNS preset - controls whether the device advertises itself on the local network via multicast DNS. Enabled by default; this preset exists mainly to turn it off. | preset |
 | [MQTT](docs/mqtt.md) | MQTT client preset with broker credentials and Home Assistant discovery. An alternative (or complement) to the native api: for brokers-based setups. | preset |
 | [OTA Updates](docs/ota.md) | Over-the-air update preset (esphome platform) with a password gate and progress logging hooks. | preset |
+| [PSRAM](docs/psram.md) | Enables external PSRAM (SPI RAM) so buffer-heavy components (camera, audio, large displays) and the psram_free diagnostic have memory to work with. | preset |
 | [Safe Mode](docs/safe_mode.md) | Tunes the boot-loop recovery safe_mode: after repeated crash-boots the device stops applying its config so an OTA fix can land. | preset |
 | [Syslog](docs/syslog.md) | Forwards ESPHome logs to a remote syslog server over UDP using the official syslog component. Useful for centralised log collection when a device is not attached to a serial console. | preset |
 | [Home Assistant Time](docs/time_homeassistant.md) | Time source synced from Home Assistant. Provides the time: component other templates (daily_restart, last_boot) require. | preset |
@@ -72,7 +73,7 @@ Set any of these once in your top-level `substitutions:` to affect every include
 | [Loop Time](docs/loop_time.md) | Reports the main-loop iteration time from the debug component, in milliseconds. Spikes reveal a component that blocks the loop (slow I2C, long lambdas). | 1 |
 | [Memory Info](docs/memory_info.md) | Reports total installed internal RAM and total PSRAM in KiB, read from the heap capability registry. Confirms how much DRAM and external SPI RAM the running build actually sees. | 2 |
 | [NVS Usage](docs/nvs_usage.md) | Reports NVS entry fill (used/total) and the on-device NVS partition size. Diagnoses ESP_ERR_NVS_NOT_ENOUGH_SPACE before it bites. | 1 |
-| [PSRAM Free](docs/psram.md) | Reports free PSRAM (SPI RAM) in bytes from the debug component. Confirms that external PSRAM is detected and tracks headroom for buffer-heavy components. | 1 |
+| [PSRAM Free](docs/psram_free.md) | Reports free PSRAM (SPI RAM) in bytes from the debug component. Confirms that external PSRAM is detected and tracks headroom for buffer-heavy components. | 1 |
 | [Runtime Stats](docs/runtime_stats.md) | Enables the runtime_stats component, which periodically logs per-component loop execution time (count, average, max, total) to the console. A debugging aid - it exposes no entities. | preset |
 | [Uptime (seconds)](docs/uptime.md) | Reports device uptime in seconds as a monotonic counter. The canonical "is it still up?" signal for HA availability graphs. | 1 |
 | [Uptime (human-readable)](docs/uptime_text.md) | Reports device uptime as a human-readable string (e.g. "3d 4h 12m 5s") using the uptime platform's built-in formatting. Nicer to read on a dashboard than raw seconds. | 1 |

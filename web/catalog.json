@@ -1085,6 +1085,50 @@
       "body": "ota:\n  - platform: esphome\n    # Required var - no default. Users pass: vars: { st_ota_password: !secret ota_password }\n    password: ${st_ota_password}\n    on_begin:\n      then:\n        - logger.log: \"OTA start\"\n    on_progress:\n      then:\n        - logger.log:\n            format: \"OTA progress %0.1f%%\"\n            args: [\"x\"]\n    on_end:\n      then:\n        - logger.log: \"OTA end\"\n    on_error:\n      then:\n        - logger.log:\n            format: \"OTA update error %d\"\n            args: [\"x\"]\n"
     },
     {
+      "slug": "psram",
+      "title": "PSRAM",
+      "category": "core",
+      "description": "Enables external PSRAM (SPI RAM) so buffer-heavy components (camera, audio, large displays) and the psram_free diagnostic have memory to work with.",
+      "platforms": [
+        "esp32",
+        "esp32s2",
+        "esp32s3"
+      ],
+      "requires": [],
+      "entities": [],
+      "vars": [
+        {
+          "name": "st_psram_mode",
+          "default": "quad",
+          "required": false,
+          "secret": false,
+          "description": "PSRAM bus mode - quad for classic ESP32/WROVER and quad-PSRAM S3 boards, octal for S3 -N8R8/-N16R8 style boards",
+          "choices": [
+            "quad",
+            "octal"
+          ]
+        },
+        {
+          "name": "st_psram_speed",
+          "default": "80MHz",
+          "required": false,
+          "secret": false,
+          "description": "PSRAM clock speed (120MHz needs octal mode and an experimental IDF flag on some versions - 80MHz is the safe default)",
+          "choices": [
+            "40MHz",
+            "80MHz",
+            "120MHz"
+          ]
+        }
+      ],
+      "notes": [
+        "The mode MUST match the actual chip - octal mode on a quad-PSRAM board (or vice versa) fails to initialize at runtime, not at compile time. Check your board's suffix: S3 -N8R8/-N16R8 = octal, -N8R2/WROVER = quad.",
+        "ESP32-C3/C6 have no PSRAM interface. On octal-PSRAM S3 boards GPIO35-37 are claimed by the PSRAM bus and unavailable for I/O."
+      ],
+      "path": "templates/core/psram.yaml",
+      "body": "defaults:\n  st_psram_mode: quad\n  st_psram_speed: 80MHz\n\npsram:\n  mode: ${st_psram_mode}\n  speed: ${st_psram_speed}\n"
+    },
+    {
       "slug": "safe_mode",
       "title": "Safe Mode",
       "category": "core",
@@ -2010,7 +2054,7 @@
       "body": "defaults:\n  st_update_interval: 60s\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n\nesphome:\n  # nvs.h / esp_partition.h are not pulled into main.cpp by any component, so\n  # force-include them for the lambda below. build_src_flags only affects the\n  # project's own src/ (main.cpp), not the framework build, and the list\n  # concatenates cleanly with flags from other templates.\n  platformio_options:\n    build_src_flags:\n      - \"-include nvs.h\"\n      - \"-include esp_partition.h\"\n\ntext_sensor:\n  - platform: template\n    id: st_nvs_usage\n    name: \"${st_name_prefix}NVS Usage\"\n    icon: mdi:database\n    entity_category: diagnostic\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n    update_interval: ${st_update_interval}\n    # nvs_get_stats() covers the default \"nvs\" partition; the partition lookup\n    # reports the size actually flashed to THIS device (see @note above).\n    lambda: |-\n      nvs_stats_t s;\n      if (nvs_get_stats(NULL, &s) != ESP_OK) return {\"unavailable\"};\n      const esp_partition_t *p = esp_partition_find_first(\n          ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_NVS, nullptr);\n      char buf[64];\n      snprintf(buf, sizeof(buf), \"%u/%u entries, %u kB partition\",\n               (unsigned) s.used_entries, (unsigned) s.total_entries,\n               p != nullptr ? (unsigned) (p->size / 1024) : 0);\n      return {std::string(buf)};\n"
     },
     {
-      "slug": "psram",
+      "slug": "psram_free",
       "title": "PSRAM Free",
       "category": "diagnostics",
       "description": "Reports free PSRAM (SPI RAM) in bytes from the debug component. Confirms that external PSRAM is detected and tracks headroom for buffer-heavy components.",
@@ -2020,7 +2064,7 @@
         "esp32s3"
       ],
       "requires": [
-        "psram"
+        "psram (core/psram.yaml)"
       ],
       "entities": [
         {
@@ -2066,10 +2110,10 @@
         }
       ],
       "notes": [
-        "ESP32-C3/C6 have no PSRAM interface - this template is limited to esp32/s2/s3. Requires the psram: component configured AND PSRAM hardware present, otherwise the sensor reports 0.",
+        "ESP32-C3/C6 have no PSRAM interface - this template is limited to esp32/s2/s3. Requires the psram: component (core/psram.yaml) configured AND PSRAM hardware present, otherwise the sensor reports 0.",
         "Shares the debug: hub with the other debug-based templates; dicts merge across packages and the last update_interval wins."
       ],
-      "path": "templates/diagnostics/psram.yaml",
+      "path": "templates/diagnostics/psram_free.yaml",
       "body": "defaults:\n  st_update_interval: 60s\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n  st_state_class: measurement\n\n# Shared debug hub (merges with other debug-based templates).\ndebug:\n  update_interval: ${st_update_interval}\n\nsensor:\n  - platform: debug\n    # Only populated when the psram: component is configured and the module\n    # actually has SPI RAM - otherwise reports 0.\n    psram:\n      id: st_psram_free\n      name: \"${st_name_prefix}PSRAM Free\"\n      unit_of_measurement: B\n      device_class: data_size\n      state_class: \"${st_state_class}\"\n      entity_category: diagnostic\n      disabled_by_default: ${st_disabled_by_default}\n      internal: ${st_internal}\n      icon: mdi:memory\n"
     },
     {

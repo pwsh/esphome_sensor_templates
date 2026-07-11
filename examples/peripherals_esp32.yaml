@@ -14,9 +14,8 @@ wifi:
   ssid: !secret wifi_ssid
   password: !secret wifi_password
 
-psram:
-
 packages:
+  psram: !include ../templates/core/psram.yaml   # quad default fits WROVER/ESP32-CAM
   device_base: !include
     file: ../templates/core/device_base.yaml
     vars:

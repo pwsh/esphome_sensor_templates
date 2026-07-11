@@ -1,0 +1,19 @@
+# @template: psram
+# @title: PSRAM
+# @category: core
+# @description: Enables external PSRAM (SPI RAM) so buffer-heavy components (camera, audio, large displays) and the psram_free diagnostic have memory to work with.
+# @platforms: esp32, esp32s2, esp32s3
+# @requires: none
+# @entities: none (hardware enablement preset)
+# @var st_psram_mode [quad] {quad|octal}: PSRAM bus mode - quad for classic ESP32/WROVER and quad-PSRAM S3 boards, octal for S3 -N8R8/-N16R8 style boards
+# @var st_psram_speed [80MHz] {40MHz|80MHz|120MHz}: PSRAM clock speed (120MHz needs octal mode and an experimental IDF flag on some versions - 80MHz is the safe default)
+# @note: The mode MUST match the actual chip - octal mode on a quad-PSRAM board (or vice versa) fails to initialize at runtime, not at compile time. Check your board's suffix: S3 -N8R8/-N16R8 = octal, -N8R2/WROVER = quad.
+# @note: ESP32-C3/C6 have no PSRAM interface. On octal-PSRAM S3 boards GPIO35-37 are claimed by the PSRAM bus and unavailable for I/O.
+
+defaults:
+  st_psram_mode: quad
+  st_psram_speed: 80MHz
+
+psram:
+  mode: ${st_psram_mode}
+  speed: ${st_psram_speed}
