@@ -1,0 +1,101 @@
+# @template: gps
+# @title: GPS Module (NEO-6M)
+# @category: peripherals
+# @description: NMEA GPS module (u-blox NEO-6M class) on a dedicated UART. Exposes latitude, longitude, altitude, speed, course and satellite-count sensors, plus a GPS time source.
+# @platforms: esp32, esp32s2, esp32s3, esp32c3, esp32c6
+# @requires: none
+# @entities: sensor "GPS Latitude"; sensor "GPS Longitude"; sensor "GPS Altitude"; sensor "GPS Speed"; sensor "GPS Course"; sensor "GPS Satellites"; sensor "GPS HDOP"
+# @var st_update_interval [60s]: How often the GPS sensors publish
+# @var st_name_prefix []: Prefix prepended to every entity name
+# @var st_disabled_by_default [false]: Ship the entities disabled in HA
+# @var st_internal [false]: Hide the entities from HA/web entirely
+# @var st_state_class [measurement]: state_class for the numeric sensors (set "" to opt out of HA long-term statistics)
+# @var st_gps_rx_pin [(required)]: GPIO wired to the GPS module's TX pin (the ESP RX). This is the only pin GPS needs.
+# @note: The GPS module only TRANSMITS NMEA, so the UART needs just an rx_pin (module TX -> ESP RX) at 9600 baud. If you need to send config commands (e.g. change baud/rate), add a tx_pin to st_gps_uart via !extend.
+# @note: ESP32 has 3 hardware UARTs (C3/C6: 2, one often taken by the logger). This template claims one for the GPS; keep it off the logger's UART pins.
+# @note: This ships a "time: - platform: gps" source (id st_time_gps). It does NOT collide with core/time_sntp.yaml or time_homeassistant.yaml (different platforms) but they are separate time sources - avoid including several unless you intend it. GPS time only becomes valid once the module has a fix.
+# @note: Latitude/longitude report NaN and satellites/hdop stay flat until the module gets a fix - a cold start outdoors can take minutes.
+
+defaults:
+  st_update_interval: 60s
+  st_name_prefix: ""
+  st_disabled_by_default: "false"
+  st_internal: "false"
+  st_state_class: measurement
+
+# Dedicated UART - GPS transmits NMEA to the ESP, so only rx_pin is required.
+uart:
+  - id: st_gps_uart
+    rx_pin: ${st_gps_rx_pin}
+    baud_rate: 9600
+
+gps:
+  id: st_gps
+  uart_id: st_gps_uart
+  update_interval: ${st_update_interval}
+  latitude:
+    id: st_gps_latitude
+    name: "${st_name_prefix}GPS Latitude"
+    unit_of_measurement: "°"
+    accuracy_decimals: 6
+    state_class: "${st_state_class}"
+    disabled_by_default: ${st_disabled_by_default}
+    internal: ${st_internal}
+    icon: mdi:latitude
+  longitude:
+    id: st_gps_longitude
+    name: "${st_name_prefix}GPS Longitude"
+    unit_of_measurement: "°"
+    accuracy_decimals: 6
+    state_class: "${st_state_class}"
+    disabled_by_default: ${st_disabled_by_default}
+    internal: ${st_internal}
+    icon: mdi:longitude
+  altitude:
+    id: st_gps_altitude
+    name: "${st_name_prefix}GPS Altitude"
+    unit_of_measurement: "m"
+    accuracy_decimals: 1
+    state_class: "${st_state_class}"
+    disabled_by_default: ${st_disabled_by_default}
+    internal: ${st_internal}
+    icon: mdi:image-filter-hdr
+  speed:
+    id: st_gps_speed
+    name: "${st_name_prefix}GPS Speed"
+    unit_of_measurement: "km/h"
+    accuracy_decimals: 1
+    state_class: "${st_state_class}"
+    disabled_by_default: ${st_disabled_by_default}
+    internal: ${st_internal}
+    icon: mdi:speedometer
+  course:
+    id: st_gps_course
+    name: "${st_name_prefix}GPS Course"
+    unit_of_measurement: "°"
+    accuracy_decimals: 1
+    state_class: "${st_state_class}"
+    disabled_by_default: ${st_disabled_by_default}
+    internal: ${st_internal}
+    icon: mdi:compass
+  satellites:
+    id: st_gps_satellites
+    name: "${st_name_prefix}GPS Satellites"
+    accuracy_decimals: 0
+    state_class: "${st_state_class}"
+    disabled_by_default: ${st_disabled_by_default}
+    internal: ${st_internal}
+    icon: mdi:satellite-variant
+  hdop:
+    id: st_gps_hdop
+    name: "${st_name_prefix}GPS HDOP"
+    accuracy_decimals: 2
+    state_class: "${st_state_class}"
+    disabled_by_default: ${st_disabled_by_default}
+    internal: ${st_internal}
+    icon: mdi:crosshairs-gps
+
+# Separate time platform - valid only after a fix. Coexists with SNTP/HA time.
+time:
+  - platform: gps
+    id: st_time_gps

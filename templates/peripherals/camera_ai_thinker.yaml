@@ -1,0 +1,58 @@
+# @template: camera_ai_thinker
+# @title: ESP32-CAM Camera (AI-Thinker)
+# @category: peripherals
+# @description: esp32_camera preset with the AI-Thinker ESP32-CAM pinout hardcoded. Exposes the onboard OV2640 camera in Home Assistant. Pins are board-specific to the classic AI-Thinker module.
+# @platforms: esp32
+# @requires: none
+# @entities: camera "Camera"
+# @var st_name_prefix []: Prefix prepended to the entity name
+# @var st_disabled_by_default [false]: Ship the entity disabled in HA
+# @var st_internal [false]: Hide the entity from HA/web entirely
+# @var st_camera_name [Camera]: Camera entity name (after st_name_prefix)
+# @var st_camera_resolution [800x600] {320x240|640x480|800x600|1024x768|1280x1024|1600x1200}: Capture resolution (higher = more RAM/slower)
+# @var st_camera_jpeg_quality [10]: JPEG quality, 6 (best) to 63 (worst); lower is higher quality and larger frames
+# @var st_camera_vertical_flip [false]: Flip the image vertically
+# @var st_camera_horizontal_mirror [false]: Mirror the image horizontally
+# @note: THIS IS THE AI-THINKER PIN MAP ONLY - it is copied from the ESPHome esp32_camera AI-Thinker example and is specific to the classic AI-Thinker ESP32-CAM. Other camera boards (M5, TTGO, ESP32-S3-EYE) use different pins; override the whole pin map via !extend.
+# @note: esp32 (classic) ONLY - the AI-Thinker board is a WROOM/WROVER classic ESP32. The pin map (and this @platforms line) do not apply to S2/S3/C3/C6 boards.
+# @note: The camera uses substantial RAM for frame buffers - PSRAM is strongly recommended (the AI-Thinker uses a WROVER module with PSRAM). Add a "psram:" block; without PSRAM you are limited to small resolutions and low quality.
+# @note: This template hardcodes its own i2c bus (SCCB) on GPIO26/27 with scan:false - it is the camera's dedicated control bus, not the shared core/i2c.yaml bus.
+# @note: On the AI-Thinker board GPIO0 (external clock) is also the boot/flash-mode strap and GPIO16 is wired to PSRAM - do not repurpose them.
+
+defaults:
+  st_name_prefix: ""
+  st_disabled_by_default: "false"
+  st_internal: "false"
+  st_camera_name: "Camera"
+  st_camera_resolution: 800x600
+  st_camera_jpeg_quality: "10"
+  st_camera_vertical_flip: "false"
+  st_camera_horizontal_mirror: "false"
+
+# Dedicated SCCB (I2C) control bus for the OV2640 - AI-Thinker fixed pins.
+i2c:
+  - id: st_camera_i2c
+    sda: GPIO26
+    scl: GPIO27
+    scan: false
+
+esp32_camera:
+  id: st_camera
+  name: "${st_name_prefix}${st_camera_name}"
+  disabled_by_default: ${st_disabled_by_default}
+  internal: ${st_internal}
+  # --- AI-Thinker ESP32-CAM fixed pin map (from the esp32_camera docs) ---
+  external_clock:
+    pin: GPIO0
+    frequency: 20MHz
+  i2c_id: st_camera_i2c
+  data_pins: [GPIO5, GPIO18, GPIO19, GPIO21, GPIO36, GPIO39, GPIO34, GPIO35]
+  vsync_pin: GPIO25
+  href_pin: GPIO23
+  pixel_clock_pin: GPIO22
+  power_down_pin: GPIO32
+  # --- image settings (user-tunable) ---
+  resolution: ${st_camera_resolution}
+  jpeg_quality: ${st_camera_jpeg_quality}
+  vertical_flip: ${st_camera_vertical_flip}
+  horizontal_mirror: ${st_camera_horizontal_mirror}

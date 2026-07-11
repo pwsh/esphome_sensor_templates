@@ -1,0 +1,39 @@
+# @template: speaker_i2s
+# @title: I2S Amplifier / DAC Speaker
+# @category: audio
+# @description: An I2S class-D amplifier or DAC (MAX98357A class) on its own I2S bus, exposed as an ESPHome speaker component for media_player / voice_assistant audio output.
+# @platforms: esp32, esp32s2, esp32s3, esp32c3, esp32c6
+# @requires: none
+# @entities: none (audio component, not an HA entity)
+# @var st_spk_lrclk [(required)]: GPIO for the I2S word-select / LR clock (LRC on the amp)
+# @var st_spk_bclk [(required)]: GPIO for the I2S bit clock (BCLK on the amp)
+# @var st_spk_dout [(required)]: GPIO for the I2S data output (DIN on the amp)
+# @var st_spk_dac_type [external] {external}: DAC type - external for an outboard I2S amp/DAC like the MAX98357A
+# @var st_spk_channel [mono] {left|right|mono|stereo}: Output channel mapping (MAX98357A is a single mono amp -> mono)
+# @var st_spk_bits_per_sample [16bit] {8bit|16bit|24bit|32bit}: I2S word width sent to the amp
+# @var st_spk_sample_rate [16000]: Sample rate in Hz (16000 matches voice_assistant TTS; raise to 44100/48000 for music)
+# @note: This template owns its own i2s_audio bus (id st_i2s_spk_bus). Single-I2S chips (ESP32-C3/C6) have only ONE I2S peripheral, so a speaker and a microphone CANNOT run at the same time on them - use an ESP32 or ESP32-S3 (two I2S peripherals) to run speaker_i2s.yaml and microphone_i2s.yaml together.
+# @note: The MAX98357A output volume/gain is set in HARDWARE by the GAIN pin strapping, not in ESPHome - there is no software gain key on this platform.
+
+defaults:
+  st_spk_dac_type: external
+  st_spk_channel: mono
+  st_spk_bits_per_sample: 16bit
+  st_spk_sample_rate: "16000"
+
+# Dedicated I2S bus for the speaker. Kept separate from any microphone bus so both
+# can coexist on dual-I2S chips (ESP32 / ESP32-S3).
+i2s_audio:
+  - id: st_i2s_spk_bus
+    i2s_lrclk_pin: ${st_spk_lrclk}
+    i2s_bclk_pin: ${st_spk_bclk}
+
+speaker:
+  - platform: i2s_audio
+    id: st_speaker
+    i2s_audio_id: st_i2s_spk_bus
+    dac_type: ${st_spk_dac_type}
+    i2s_dout_pin: ${st_spk_dout}
+    channel: ${st_spk_channel}
+    bits_per_sample: ${st_spk_bits_per_sample}
+    sample_rate: ${st_spk_sample_rate}

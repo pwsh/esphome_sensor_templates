@@ -43,9 +43,15 @@ Set any of these once in your top-level `substitutions:` to affect every include
 | Template | Description | Entities |
 |---|---|---|
 | [Home Assistant API](docs/api.md) | Native Home Assistant API preset with encryption and a survival-friendly reboot_timeout. Provides the api: component templates like time_homeassistant require. | preset |
+| [Captive Portal](docs/captive_portal.md) | WiFi fallback hotspot plus captive portal. When the device cannot join your WiFi it starts its own access point and serves a page to reconfigure credentials. | preset |
+| [Device Identity](docs/device_base.md) | The esphome: identity block - device name, friendly_name, comment, project metadata and Home Assistant area. Include this INSTEAD of writing your own esphome: name/friendly_name. | preset |
+| [I2C Bus](docs/i2c.md) | The shared I2C bus (id st_i2c_bus) that environment-category I2C sensor templates attach to. Include once; every I2C sensor points at it via its *_i2c_id var. | preset |
 | [Logger](docs/logger.md) | Logger preset with configurable level and UART baud rate. | preset |
+| [mDNS](docs/mdns.md) | mDNS preset - controls whether the device advertises itself on the local network via multicast DNS. Enabled by default; this preset exists mainly to turn it off. | preset |
+| [MQTT](docs/mqtt.md) | MQTT client preset with broker credentials and Home Assistant discovery. An alternative (or complement) to the native api: for brokers-based setups. | preset |
 | [OTA Updates](docs/ota.md) | Over-the-air update preset (esphome platform) with a password gate and progress logging hooks. | preset |
 | [Safe Mode](docs/safe_mode.md) | Tunes the boot-loop recovery safe_mode: after repeated crash-boots the device stops applying its config so an OTA fix can land. | preset |
+| [Syslog](docs/syslog.md) | Forwards ESPHome logs to a remote syslog server over UDP using the official syslog component. Useful for centralised log collection when a device is not attached to a serial console. | preset |
 | [Home Assistant Time](docs/time_homeassistant.md) | Time source synced from Home Assistant. Provides the time: component other templates (daily_restart, last_boot) require. | preset |
 | [SNTP Time](docs/time_sntp.md) | SNTP time source with configurable server. Provides the time: component other templates (daily_restart, last_boot) require. | preset |
 | [Web Server](docs/web_server.md) | Built-in web UI (v3) with HTTP basic auth and a boot-time gate that can disable auth without editing the config. Keeps the device usable standalone when Home Assistant is down. | preset |
@@ -67,6 +73,7 @@ Set any of these once in your top-level `substitutions:` to affect every include
 | [Memory Info](docs/memory_info.md) | Reports total installed internal RAM and total PSRAM in KiB, read from the heap capability registry. Confirms how much DRAM and external SPI RAM the running build actually sees. | 2 |
 | [NVS Usage](docs/nvs_usage.md) | Reports NVS entry fill (used/total) and the on-device NVS partition size. Diagnoses ESP_ERR_NVS_NOT_ENOUGH_SPACE before it bites. | 1 |
 | [PSRAM Free](docs/psram.md) | Reports free PSRAM (SPI RAM) in bytes from the debug component. Confirms that external PSRAM is detected and tracks headroom for buffer-heavy components. | 1 |
+| [Runtime Stats](docs/runtime_stats.md) | Enables the runtime_stats component, which periodically logs per-component loop execution time (count, average, max, total) to the console. A debugging aid - it exposes no entities. | preset |
 | [Uptime (seconds)](docs/uptime.md) | Reports device uptime in seconds as a monotonic counter. The canonical "is it still up?" signal for HA availability graphs. | 1 |
 | [Uptime (human-readable)](docs/uptime_text.md) | Reports device uptime as a human-readable string (e.g. "3d 4h 12m 5s") using the uptime platform's built-in formatting. Nicer to read on a dashboard than raw seconds. | 1 |
 
@@ -91,6 +98,57 @@ Set any of these once in your top-level `substitutions:` to affect every include
 | [PWM Dimmable Light (LEDC)](docs/pwm_light.md) | A single-channel dimmable LED or single-color strip driven by an ESP32 LEDC PWM output. Duty-cycle cap keeps a MOSFET-driven strip inside the USB power budget by default. | 1 |
 | [RGB Light (3x LEDC PWM)](docs/rgb_light.md) | A common-anode/cathode analog RGB light built from three ESP32 LEDC PWM outputs (one per color channel). Per-output duty caps keep it inside the USB power budget by default. | 1 |
 | [RGBW Light (4x LEDC PWM)](docs/rgbw_light.md) | An analog RGBW light built from four ESP32 LEDC PWM outputs (R, G, B and a dedicated white channel). Per-output duty caps plus color interlock keep it inside the USB power budget by default. | 1 |
+
+### Audio
+
+| Template | Description | Entities |
+|---|---|---|
+| [Passive Piezo Buzzer (RTTTL)](docs/buzzer_rtttl.md) | A passive piezo buzzer driven by an ESP32 LEDC PWM output through the rtttl tone generator, with a demo test button. rtttl.play is callable from automations or Home Assistant. | 1 |
+| [microWakeWord Detector](docs/micro_wake_word.md) | On-device wake-word detection (microWakeWord) that listens on an I2S microphone and pulses a template binary sensor when the chosen wake word is heard. | 1 |
+| [I2S MEMS Microphone](docs/microphone_i2s.md) | An I2S digital MEMS microphone (INMP441 / SPH0645 class) on its own I2S bus, exposed as an ESPHome microphone component for use by micro_wake_word or voice_assistant. | preset |
+| [I2S Amplifier / DAC Speaker](docs/speaker_i2s.md) | An I2S class-D amplifier or DAC (MAX98357A class) on its own I2S bus, exposed as an ESPHome speaker component for media_player / voice_assistant audio output. | preset |
+
+### Environment
+
+| Template | Description | Entities |
+|---|---|---|
+| [AHT20 Temperature & Humidity](docs/aht20.md) | Reads temperature and humidity from an Aosong AHT10/AHT20/AHT30 over I2C. Shares the library I2C bus. | 2 |
+| [BME280 Temperature / Humidity / Pressure](docs/bme280.md) | Reads temperature, humidity and barometric pressure from a Bosch BME280 over I2C. Shares the library I2C bus. | 3 |
+| [DHT Temperature & Humidity](docs/dht.md) | Reads temperature and humidity from a DHT11/DHT22/AM2302/RHT03 single-wire sensor. Exposes both readings as primary sensors. | 2 |
+| [DS18B20 Temperature](docs/ds18b20.md) | Reads a Dallas DS18B20 temperature sensor over a dedicated 1-Wire bus. Owns its one_wire: bus (the only template that uses it). | 1 |
+| [SHT3x Temperature & Humidity](docs/sht3x.md) | Reads temperature and humidity from a Sensirion SHT30/SHT31/SHT35 (SHT3x-D) over I2C. Shares the library I2C bus. | 2 |
+
+### Presence
+
+| Template | Description | Entities |
+|---|---|---|
+| [LD2410 mmWave Presence](docs/ld2410.md) | HiLink LD2410 24GHz mmWave radar presence sensor over UART. Exposes occupancy plus moving/still target flags and distances. Owns its own uart: bus. | 5 |
+| [LD2450 mmWave Tracking](docs/ld2450.md) | HiLink LD2450 24GHz mmWave radar with multi-target tracking over UART. Exposes occupancy plus the active target count. Owns its own uart: bus. | 2 |
+
+### Bluetooth
+
+| Template | Description | Entities |
+|---|---|---|
+| [ESP32 BLE Tracker](docs/ble_tracker.md) | Enables the ESP32 Bluetooth Low Energy scanner so ble_presence / ble_rssi and related BLE platforms can see nearby devices. Sets sensible scan parameters. | preset |
+| [Bluetooth Proxy](docs/bluetooth_proxy.md) | Turns the device into a Home Assistant Bluetooth proxy, forwarding nearby BLE advertisements (and optionally active GATT connections) to HA over the native API. | preset |
+
+### Remote
+
+| Template | Description | Entities |
+|---|---|---|
+| [IR Receiver (TSOP)](docs/ir_receiver.md) | Infrared remote receiver hub for a TSOP-class demodulating IR sensor. Decodes received remote codes and prints them to the log so you can copy them into an ir_transmitter template. | preset |
+| [IR Transmitter (LED)](docs/ir_transmitter.md) | Infrared transmitter hub driving an IR LED, plus a demo template button that sends a sample NEC code. Use ir_receiver to learn codes, then replay them from here. | 1 |
+| [433 MHz RF Receiver (RC Switch)](docs/rf_receiver.md) | 433 MHz RF receiver hub (RXB6 / superheterodyne class) that decodes RC Switch codes from cheap wall plugs and remotes and prints them to the log. Filter/idle/tolerance are pre-tuned for noisy 433 MHz receivers. | preset |
+| [433 MHz RF Transmitter (RC Switch)](docs/rf_transmitter.md) | 433 MHz RF transmitter hub (FS1000A / ASK class) plus a demo template button that sends a sample RC Switch code. Learn codes with rf_receiver, then replay them from here. | 1 |
+
+### Peripherals
+
+| Template | Description | Entities |
+|---|---|---|
+| [ESP32-CAM Camera (AI-Thinker)](docs/camera_ai_thinker.md) | esp32_camera preset with the AI-Thinker ESP32-CAM pinout hardcoded. Exposes the onboard OV2640 camera in Home Assistant. Pins are board-specific to the classic AI-Thinker module. | 1 |
+| [On/Off Fan (GPIO)](docs/fan_gpio.md) | Simple on/off fan switched through a relay or MOSFET on a GPIO output. No speed control. Multi-instance via id/name vars. | 1 |
+| [PWM Fan (LEDC)](docs/fan_pwm.md) | Variable-speed fan driven by an ESP32 LEDC PWM output - a 4-wire PC fan (PWM on the control wire) or a MOSFET-driven 2-wire DC fan. Multi-instance via id/name vars. | 1 |
+| [GPS Module (NEO-6M)](docs/gps.md) | NMEA GPS module (u-blox NEO-6M class) on a dedicated UART. Exposes latitude, longitude, altitude, speed, course and satellite-count sensors, plus a GPS time source. | 7 |
 
 ### Controls
 

@@ -1,0 +1,16 @@
+# @template: mdns
+# @title: mDNS
+# @category: core
+# @description: mDNS preset - controls whether the device advertises itself on the local network via multicast DNS. Enabled by default; this preset exists mainly to turn it off.
+# @platforms: esp32, esp32s2, esp32s3, esp32c3, esp32c6
+# @requires: wifi
+# @entities: none (mDNS preset only)
+# @var st_mdns_disabled [false]: Set "true" to stop advertising this device over mDNS
+# @note: Disabling mDNS breaks the ESPHome dashboard's online/offline detection and Home Assistant discovery by hostname (<name>.local). OTA and the API by fixed IP still work - you just have to address the device by IP, not hostname.
+# @note: mDNS is already enabled by default in ESPHome; you only need this file to disable it or (later) to add custom advertised services via !extend.
+
+defaults:
+  st_mdns_disabled: "false"
+
+mdns:
+  disabled: ${st_mdns_disabled}

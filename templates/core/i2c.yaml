@@ -1,0 +1,25 @@
+# @template: i2c
+# @title: I2C Bus
+# @category: core
+# @description: The shared I2C bus (id st_i2c_bus) that environment-category I2C sensor templates attach to. Include once; every I2C sensor points at it via its *_i2c_id var.
+# @platforms: esp32, esp32s2, esp32s3, esp32c3, esp32c6
+# @requires: none
+# @entities: none (hardware bus only)
+# @var st_i2c_sda [(required)]: GPIO for the I2C SDA (data) line
+# @var st_i2c_scl [(required)]: GPIO for the I2C SCL (clock) line
+# @var st_i2c_scan [true]: Scan the bus for devices at boot and log the addresses found (handy while wiring)
+# @var st_i2c_frequency [50kHz] {10kHz|50kHz|100kHz|200kHz|400kHz|800kHz}: Bus clock speed (ESPHome default 50kHz; raise to 100kHz/400kHz for fast sensors on short, well-pulled-up wiring)
+# @note: This is the shared bus per the library's "Shared hardware buses" convention. I2C sensor templates declare @requires: i2c and set i2c_id: ${st_<tpl>_i2c_id} defaulting to st_i2c_bus - they never declare their own i2c: block. Include this file exactly once.
+# @note: SDA/SCL need external pull-up resistors (typically 4.7k to 3.3V); most breakout boards include them. If the boot scan finds nothing, check wiring and pull-ups before raising the frequency.
+
+defaults:
+  st_i2c_scan: "true"
+  st_i2c_frequency: 50kHz
+
+i2c:
+  - id: st_i2c_bus
+    # Required vars - no defaults. Board I2C pins vary, so the user must set them.
+    sda: ${st_i2c_sda}
+    scl: ${st_i2c_scl}
+    scan: ${st_i2c_scan}
+    frequency: ${st_i2c_frequency}

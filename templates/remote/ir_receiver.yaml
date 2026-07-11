@@ -1,0 +1,33 @@
+# @template: ir_receiver
+# @title: IR Receiver (TSOP)
+# @category: remote
+# @description: Infrared remote receiver hub for a TSOP-class demodulating IR sensor. Decodes received remote codes and prints them to the log so you can copy them into an ir_transmitter template.
+# @platforms: esp32, esp32s2, esp32s3, esp32c3, esp32c6
+# @requires: none
+# @entities: none (receiver hub only - add binary_sensors via !extend, see notes)
+# @var st_ir_rx_pin [(required)]: GPIO wired to the TSOP data/OUT pin
+# @var st_ir_dump [all] {all|nec|sony|rc5|rc6|samsung|samsung36|lg|panasonic|jvc|pronto|coolix|midea|rc_switch|raw}: Which decoded protocol(s) to print to the log; "all" dumps every known protocol
+# @note: TSOP-class receivers (TSOP38238 etc.) have an open-collector output that idles HIGH and pulls LOW on a carrier burst, so the pin is configured inverted:true with an internal pull-up. If your module has its own pull-up you can drop the pullup via !extend.
+# @note: READ CODES FROM THE LOG - point a remote at the receiver and the decoded code prints at INFO level, e.g. "Received NEC: address=0x1234, command=0x0078". Copy those values into ir_transmitter.yaml (st_ir_test_address / st_ir_test_command) to replay the button.
+# @note: dump also accepts a LIST - to dump several specific protocols instead of one, override via !extend: "remote_receiver: - id: !extend st_ir_receiver / dump: [nec, sony, rc5]".
+# @note: ADD A BUTTON BINARY_SENSOR via !extend (not shipped, codes are device-specific). Example - a "Power" button on a NEC remote:
+#   binary_sensor:
+#     - platform: remote_receiver
+#       name: "Remote Power"
+#       nec:
+#         address: 0x1234
+#         command: 0x0078
+
+defaults:
+  st_ir_dump: all
+
+remote_receiver:
+  id: st_ir_receiver
+  pin:
+    number: ${st_ir_rx_pin}
+    # TSOP output is active-low and idles high -> invert so bursts read as marks.
+    inverted: true
+    mode:
+      input: true
+      pullup: true
+  dump: ${st_ir_dump}

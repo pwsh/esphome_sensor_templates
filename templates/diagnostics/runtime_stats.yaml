@@ -1,0 +1,16 @@
+# @template: runtime_stats
+# @title: Runtime Stats
+# @category: diagnostics
+# @description: Enables the runtime_stats component, which periodically logs per-component loop execution time (count, average, max, total) to the console. A debugging aid - it exposes no entities.
+# @platforms: esp32, esp32s2, esp32s3, esp32c3, esp32c6
+# @requires: none
+# @entities: none (logs to console only)
+# @var st_runtime_stats_log_interval [60s]: How often to print the runtime statistics report to the log
+# @note: This is a debugging tool. Collecting the stats adds overhead to every component execution, so remove this package once you have finished profiling rather than leaving it enabled long-term.
+# @note: Output goes to the logger at INFO level (there are no sensor entities). Watch it with `esphome logs` or the log viewer. A shorter log_interval means more log volume.
+
+defaults:
+  st_runtime_stats_log_interval: 60s
+
+runtime_stats:
+  log_interval: ${st_runtime_stats_log_interval}

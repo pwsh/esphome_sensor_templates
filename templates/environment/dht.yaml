@@ -1,0 +1,50 @@
+# @template: dht
+# @title: DHT Temperature & Humidity
+# @category: environment
+# @description: Reads temperature and humidity from a DHT11/DHT22/AM2302/RHT03 single-wire sensor. Exposes both readings as primary sensors.
+# @platforms: esp32, esp32s2, esp32s3, esp32c3, esp32c6
+# @requires: none
+# @entities: sensor "Temperature"; sensor "Humidity"
+# @var st_update_interval [60s]: How often to sample the sensor (min 2s for DHT22)
+# @var st_name_prefix []: Prefix prepended to every entity name
+# @var st_disabled_by_default [false]: Ship the entities disabled in HA
+# @var st_internal [false]: Hide the entities from HA/web entirely
+# @var st_state_class [measurement]: state_class for both readings; set "" to opt out of HA long-term statistics
+# @var st_dht_pin [(required)]: GPIO connected to the sensor DATA line
+# @var st_dht_model [DHT22] {AUTO_DETECT|DHT11|DHT22|DHT22_TYPE2|AM2302|RHT03|SI7021|AM2120}: Sensor variant
+# @note: DHT22/AM2302 need at least 2s between reads - do not set st_update_interval below 2s.
+# @note: A 4.7kΩ-10kΩ pull-up between DATA and 3.3V is required. Bare-module boards with an onboard pull-up need pin: { number: X, pullup: false } via !extend st_dht_temperature's parent - or wire your own.
+
+defaults:
+  st_update_interval: 60s
+  st_name_prefix: ""
+  st_disabled_by_default: "false"
+  st_internal: "false"
+  st_state_class: measurement
+  st_dht_model: DHT22
+
+sensor:
+  - platform: dht
+    pin: ${st_dht_pin}
+    # Explicit model is more reliable than AUTO_DETECT (which cannot detect
+    # the SI7021 and occasionally mis-IDs cheap clones).
+    model: ${st_dht_model}
+    update_interval: ${st_update_interval}
+    temperature:
+      id: st_dht_temperature
+      name: "${st_name_prefix}Temperature"
+      device_class: temperature
+      unit_of_measurement: "°C"
+      accuracy_decimals: 1
+      state_class: "${st_state_class}"
+      disabled_by_default: ${st_disabled_by_default}
+      internal: ${st_internal}
+    humidity:
+      id: st_dht_humidity
+      name: "${st_name_prefix}Humidity"
+      device_class: humidity
+      unit_of_measurement: "%"
+      accuracy_decimals: 1
+      state_class: "${st_state_class}"
+      disabled_by_default: ${st_disabled_by_default}
+      internal: ${st_internal}

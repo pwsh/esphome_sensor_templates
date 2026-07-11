@@ -1,0 +1,40 @@
+# @template: syslog
+# @title: Syslog
+# @category: core
+# @description: Forwards ESPHome logs to a remote syslog server over UDP using the official syslog component. Useful for centralised log collection when a device is not attached to a serial console.
+# @platforms: esp32, esp32s2, esp32s3, esp32c3, esp32c6
+# @requires: wifi, time
+# @entities: none (log forwarder only)
+# @var st_syslog_host [(required)]: Syslog server hostname or IP to send log packets to
+# @var st_syslog_port [514]: Destination UDP port on the syslog server (standard syslog = 514)
+# @var st_syslog_level [DEBUG] {NONE|ERROR|WARN|INFO|DEBUG|VERBOSE|VERY_VERBOSE}: Highest log level to forward to the server
+# @var st_syslog_facility [16]: Syslog facility number (16 = local0, the usual choice for app logs)
+# @var st_syslog_strip [true]: Strip ANSI color codes from forwarded messages (most syslog servers can't render them)
+# @var st_syslog_time_id [st_time_sntp]: id of the time component used to timestamp messages (st_time_ha for the HA time preset)
+# @note: This is the OFFICIAL ESPHome syslog component (https://esphome.io/components/syslog/) - it is in mainline ESPHome, works on ESP-IDF, and pulls NO third-party code. (The older third-party github.com/TheStaticTurtle/esphome_syslog was archived Oct 2025 and is arduino-only, so it is deliberately not used here.)
+# @note: Needs a time: component. Include core/time_sntp.yaml (default) or core/time_homeassistant.yaml (then pass st_syslog_time_id: st_time_ha). It also declares its own udp: client (id st_syslog_udp) pointed at the server address.
+# @note: Transport is plain UDP with no encryption or delivery guarantee - logs travel in cleartext on your LAN and packets can be dropped. Keep it to a trusted network.
+
+defaults:
+  st_syslog_port: "514"
+  st_syslog_level: DEBUG
+  st_syslog_facility: "16"
+  st_syslog_strip: "true"
+  st_syslog_time_id: st_time_sntp
+
+# The syslog component sends through a udp: client. This declares a dedicated
+# one aimed at the server; addresses is a list, so the required host is the
+# single unicast target.
+udp:
+  id: st_syslog_udp
+  addresses:
+    - ${st_syslog_host}
+
+syslog:
+  udp_id: st_syslog_udp
+  # Attach to an already-included time component for RFC-compliant timestamps.
+  time_id: ${st_syslog_time_id}
+  port: ${st_syslog_port}
+  level: ${st_syslog_level}
+  facility: ${st_syslog_facility}
+  strip: ${st_syslog_strip}

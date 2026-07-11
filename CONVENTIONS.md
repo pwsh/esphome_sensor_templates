@@ -95,7 +95,7 @@ Every file starts with this comment block, one `# @key:` per line, before any YA
 ```yaml
 # @template: wifi_signal            <- unique slug, matches filename without .yaml
 # @title: WiFi Signal Strength      <- short human title
-# @category: core|diagnostics|network|lighting|controls|inputs
+# @category: core|diagnostics|network|lighting|audio|environment|presence|bluetooth|remote|peripherals|controls|inputs
 # @description: One or two sentences: what it does and what it provides.
 # @platforms: esp32, esp32s2, esp32s3, esp32c3, esp32c6   <- only chips it truly supports
 # @requires: wifi                   <- comma list of config the USER must already have
@@ -115,6 +115,21 @@ Rules: `@var` lines list EVERY var in `defaults:` (shared knobs included) with i
 default MUST be one of the choices). Plain `"true"`/`"false"` vars need no `{...}`; the builder
 auto-detects booleans. `@requires: none` when standalone. After the header, use plain `#`
 comments generously — explain WHY (gotchas, IDF behavior), like the reference files do.
+
+## Shared hardware buses
+
+Templates that need a bus follow the daily_restart pattern — reference a shared resource by id
+via a var instead of declaring a colliding duplicate:
+
+- **I2C**: `core/i2c.yaml` provides the bus (id `st_i2c_bus`, pin vars). I2C sensor templates
+  declare `@requires: i2c` and set `i2c_id: ${st_<tpl>_i2c_id}` with default `st_i2c_bus`.
+  They never declare their own `i2c:` block.
+- **UART**: each UART device template declares its OWN `uart:` entry (devices need distinct
+  pins anyway) with a unique `st_<tpl>_uart` id and required pin vars. Note in the file that
+  ESP32 has 3 hardware UARTs (C3/C6: 2, one often used by the logger).
+- **I2S**: microphone and speaker templates declare their own `i2s_audio:` bus with unique
+  `st_` ids; chips with a single I2S peripheral (C3) can only run one at a time — document it.
+- **one_wire**: the DS18B20 template owns its `one_wire:` bus (only template using it).
 
 ## Lighting templates
 

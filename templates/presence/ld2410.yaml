@@ -1,0 +1,78 @@
+# @template: ld2410
+# @title: LD2410 mmWave Presence
+# @category: presence
+# @description: HiLink LD2410 24GHz mmWave radar presence sensor over UART. Exposes occupancy plus moving/still target flags and distances. Owns its own uart: bus.
+# @platforms: esp32, esp32s2, esp32s3, esp32c3, esp32c6
+# @requires: none
+# @entities: binary_sensor "Presence"; binary_sensor "Moving Target"; binary_sensor "Still Target"; sensor "Moving Distance"; sensor "Still Distance"
+# @var st_name_prefix []: Prefix prepended to every entity name
+# @var st_disabled_by_default [false]: Ship the entities disabled in HA
+# @var st_internal [false]: Hide the entities from HA/web entirely
+# @var st_state_class [measurement]: state_class for the distance sensors; set "" to opt out of HA long-term statistics
+# @var st_ld2410_uart_tx_pin [(required)]: GPIO wired to the sensor RX pin (ESP TX)
+# @var st_ld2410_uart_rx_pin [(required)]: GPIO wired to the sensor TX pin (ESP RX)
+# @note: The LD2410 uses a fixed 256000 baud UART (parity NONE, 1 stop bit). Use hardware UART pins. ESP32 has 3 hardware UARTs, S2/S3 have 2-3, C3/C6 have 2 - one is usually taken by the logger (UART0), so keep the logger on its default pins or drop its baud/hardware_uart if you run out.
+# @note: This preset exposes only the core presence readings. The full tuning surface - per-gate move/still sensitivity, detection timeout, bluetooth, engineering mode, calibration buttons - is available by adding the ld2410 number:/select:/switch:/button: platforms with ld2410_id: st_ld2410, or by !extend st_ld2410.
+
+defaults:
+  st_name_prefix: ""
+  st_disabled_by_default: "false"
+  st_internal: "false"
+  st_state_class: measurement
+
+# Dedicated UART for this radar (256000 baud is the module's fixed rate).
+uart:
+  - id: st_ld2410_uart
+    tx_pin: ${st_ld2410_uart_tx_pin}
+    rx_pin: ${st_ld2410_uart_rx_pin}
+    baud_rate: 256000
+    parity: NONE
+    stop_bits: 1
+
+ld2410:
+  id: st_ld2410
+  uart_id: st_ld2410_uart
+
+binary_sensor:
+  - platform: ld2410
+    ld2410_id: st_ld2410
+    has_target:
+      id: st_ld2410_presence
+      name: "${st_name_prefix}Presence"
+      device_class: occupancy
+      disabled_by_default: ${st_disabled_by_default}
+      internal: ${st_internal}
+    has_moving_target:
+      id: st_ld2410_moving_target
+      name: "${st_name_prefix}Moving Target"
+      device_class: motion
+      disabled_by_default: ${st_disabled_by_default}
+      internal: ${st_internal}
+    has_still_target:
+      id: st_ld2410_still_target
+      name: "${st_name_prefix}Still Target"
+      device_class: occupancy
+      disabled_by_default: ${st_disabled_by_default}
+      internal: ${st_internal}
+
+sensor:
+  - platform: ld2410
+    ld2410_id: st_ld2410
+    moving_distance:
+      id: st_ld2410_moving_distance
+      name: "${st_name_prefix}Moving Distance"
+      device_class: distance
+      unit_of_measurement: cm
+      accuracy_decimals: 0
+      state_class: "${st_state_class}"
+      disabled_by_default: ${st_disabled_by_default}
+      internal: ${st_internal}
+    still_distance:
+      id: st_ld2410_still_distance
+      name: "${st_name_prefix}Still Distance"
+      device_class: distance
+      unit_of_measurement: cm
+      accuracy_decimals: 0
+      state_class: "${st_state_class}"
+      disabled_by_default: ${st_disabled_by_default}
+      internal: ${st_internal}

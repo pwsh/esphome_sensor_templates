@@ -26,7 +26,8 @@ CATALOG_JSON = WEB_DIR / "catalog.json"
 INDEX_HTML = WEB_DIR / "index.html"
 
 MIN_ESPHOME = "2026.5.0"
-CATEGORIES = ["core", "diagnostics", "network", "lighting", "controls", "inputs"]
+CATEGORIES = ["core", "diagnostics", "network", "lighting", "audio", "environment",
+              "presence", "bluetooth", "remote", "peripherals", "controls", "inputs"]
 
 REQUIRED_KEYS = ("template", "title", "category", "description",
                  "platforms", "requires", "entities")
@@ -247,6 +248,12 @@ def validate(entries):
             errors.append(f"{rel}: '{k}' in defaults: but has no matching @var line")
         for k in sorted(non_required - def_set):
             errors.append(f"{rel}: @var '{k}' has no matching key in defaults:")
+        # Required vars must be ABSENT from defaults: (a literal "(required)"
+        # placeholder turns a missing var into a bogus value instead of a
+        # clear unresolved-substitution error).
+        required = {v["name"] for v in e["vars"] if v["required"]}
+        for k in sorted(required & def_set):
+            errors.append(f"{rel}: required @var '{k}' must not appear in defaults:")
 
     # global id uniqueness (regex across raw file bodies)
     id_owners = {}

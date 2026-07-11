@@ -24,6 +24,8 @@ wifi_password: "example-password"
 api_encryption_key: "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="
 ota_password: "example-ota-password"
 web_password: "example-web-password"
+mqtt_password: "example-mqtt-password"
+ap_password: "example-ap-password"
 SECRETS
 fi
 

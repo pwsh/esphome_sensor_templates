@@ -1,0 +1,49 @@
+# @template: aht20
+# @title: AHT20 Temperature & Humidity
+# @category: environment
+# @description: Reads temperature and humidity from an Aosong AHT10/AHT20/AHT30 over I2C. Shares the library I2C bus.
+# @platforms: esp32, esp32s2, esp32s3, esp32c3, esp32c6
+# @requires: i2c
+# @entities: sensor "Temperature"; sensor "Humidity"
+# @var st_update_interval [60s]: How often to sample the sensor
+# @var st_name_prefix []: Prefix prepended to every entity name
+# @var st_disabled_by_default [false]: Ship the entities disabled in HA
+# @var st_internal [false]: Hide the entities from HA/web entirely
+# @var st_state_class [measurement]: state_class for both readings; set "" to opt out of HA long-term statistics
+# @var st_aht20_i2c_id [st_i2c_bus]: id of the I2C bus to use (from core/i2c.yaml)
+# @var st_aht20_variant [AHT20] {AHT10|AHT20}: Chip variant - use AHT20 for AHT20 and AHT30 modules
+# @note: Requires the shared I2C bus - include core/i2c.yaml. The AHT10/20/30 all share the fixed I2C address 0x38.
+# @note: If an AHT10-labelled module fails to read, switch st_aht20_variant to AHT20 (some clones need it).
+
+defaults:
+  st_update_interval: 60s
+  st_name_prefix: ""
+  st_disabled_by_default: "false"
+  st_internal: "false"
+  st_state_class: measurement
+  st_aht20_i2c_id: st_i2c_bus
+  st_aht20_variant: AHT20
+
+sensor:
+  - platform: aht10
+    i2c_id: ${st_aht20_i2c_id}
+    variant: ${st_aht20_variant}
+    update_interval: ${st_update_interval}
+    temperature:
+      id: st_aht20_temperature
+      name: "${st_name_prefix}Temperature"
+      device_class: temperature
+      unit_of_measurement: "°C"
+      accuracy_decimals: 1
+      state_class: "${st_state_class}"
+      disabled_by_default: ${st_disabled_by_default}
+      internal: ${st_internal}
+    humidity:
+      id: st_aht20_humidity
+      name: "${st_name_prefix}Humidity"
+      device_class: humidity
+      unit_of_measurement: "%"
+      accuracy_decimals: 1
+      state_class: "${st_state_class}"
+      disabled_by_default: ${st_disabled_by_default}
+      internal: ${st_internal}

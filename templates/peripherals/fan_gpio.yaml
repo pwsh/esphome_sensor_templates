@@ -1,0 +1,36 @@
+# @template: fan_gpio
+# @title: On/Off Fan (GPIO)
+# @category: peripherals
+# @description: Simple on/off fan switched through a relay or MOSFET on a GPIO output. No speed control. Multi-instance via id/name vars.
+# @platforms: esp32, esp32s2, esp32s3, esp32c3, esp32c6
+# @requires: none
+# @entities: fan "Fan"
+# @var st_name_prefix []: Prefix prepended to the entity name
+# @var st_disabled_by_default [false]: Ship the entity disabled in HA
+# @var st_internal [false]: Hide the entity from HA/web entirely
+# @var st_fan_gpio_id [st_fan_gpio]: Entity id - MUST be overridden on every extra include (see notes)
+# @var st_fan_gpio_name [Fan]: Entity name (after st_name_prefix)
+# @var st_fan_gpio_pin [(required)]: GPIO driving the relay/MOSFET control input
+# @note: MULTI-INSTANCE - include more than once for several fans. Each extra include MUST override st_fan_gpio_id, st_fan_gpio_name AND st_fan_gpio_pin; duplicate ids or shared pins are errors. The GPIO output id is derived as ${st_fan_gpio_id}_out.
+# @note: Size the relay/MOSFET for the fan's stall current, not its running current. A DC fan is an inductive load - add a flyback diode across the fan (or use a relay module with one built in) so the back-EMF spike does not destroy the switching device. For a bare MOSFET, use a logic-level part switching the fan's ground.
+
+defaults:
+  st_name_prefix: ""
+  st_disabled_by_default: "false"
+  st_internal: "false"
+  st_fan_gpio_id: st_fan_gpio
+  st_fan_gpio_name: "Fan"
+
+output:
+  - platform: gpio
+    # id concatenates the fan-id var textually, so it stays unique per include.
+    id: ${st_fan_gpio_id}_out
+    pin: ${st_fan_gpio_pin}
+
+fan:
+  - platform: binary
+    id: ${st_fan_gpio_id}
+    name: "${st_name_prefix}${st_fan_gpio_name}"
+    output: ${st_fan_gpio_id}_out
+    disabled_by_default: ${st_disabled_by_default}
+    internal: ${st_internal}

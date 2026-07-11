@@ -1,0 +1,28 @@
+# @template: ble_tracker
+# @title: ESP32 BLE Tracker
+# @category: bluetooth
+# @description: Enables the ESP32 Bluetooth Low Energy scanner so ble_presence / ble_rssi and related BLE platforms can see nearby devices. Sets sensible scan parameters.
+# @platforms: esp32, esp32s3, esp32c3, esp32c6
+# @requires: none
+# @entities: none (BLE scanner component, add ble_presence/ble_rssi platforms yourself)
+# @var st_ble_scan_interval [320ms]: Time between the start of consecutive scan windows
+# @var st_ble_scan_window [30ms]: How long the radio actively listens within each interval (must be <= interval)
+# @var st_ble_scan_duration [5min]: How long a scan runs before the stack restarts it (clears the found-devices cache)
+# @var st_ble_active [true]: C++ literal "true"/"false" - true sends scan requests to also collect scan-response (active scan); false is passive/lower-power
+# @note: NOT available on ESP32-S2 - that chip has no Bluetooth radio at all. Works on esp32, esp32s3, esp32c3 and esp32c6.
+# @note: The BLE stack costs a significant chunk of RAM and flash - expect a noticeable heap drop after enabling it. It is frequently paired with bluetooth_proxy.yaml (which depends on this scanner).
+# @note: On single-core chips (ESP32-C3) both WiFi and the BLE tracker share one core; enable software_coexistence manually if you see WiFi/BLE contention.
+
+defaults:
+  st_ble_scan_interval: 320ms
+  st_ble_scan_window: 30ms
+  st_ble_scan_duration: 5min
+  st_ble_active: "true"
+
+esp32_ble_tracker:
+  id: st_ble_tracker
+  scan_parameters:
+    interval: ${st_ble_scan_interval}
+    window: ${st_ble_scan_window}
+    duration: ${st_ble_scan_duration}
+    active: ${st_ble_active}

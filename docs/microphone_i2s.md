@@ -1,0 +1,49 @@
+# I2S MEMS Microphone
+
+An I2S digital MEMS microphone (INMP441 / SPH0645 class) on its own I2S bus, exposed as an ESPHome microphone component for use by micro_wake_word or voice_assistant.
+
+**Platforms:** `esp32` `esp32s2` `esp32s3` `esp32c3` `esp32c6`
+
+**Requires:** none
+
+## Entities
+
+_No Home Assistant entities (preset / firmware-only)._
+
+## Usage
+
+Local include (repo checked out beside your config):
+
+```yaml
+packages:
+  microphone_i2s: !include
+    file: esphome_sensor_templates/templates/audio/microphone_i2s.yaml
+    vars: { st_mic_lrclk: <value>, st_mic_bclk: <value>, st_mic_din: <value> }
+```
+
+Remote include (pulled straight from GitHub):
+
+```yaml
+packages:
+  microphone_i2s: github://OWNER/esphome_sensor_templates/templates/audio/microphone_i2s.yaml@main
+```
+
+> Replace `OWNER` with the GitHub owner/repo that hosts this library.
+
+## Variables
+
+| Variable | Default | Description |
+|---|---|---|
+| **st_mic_lrclk** | **(required)** | GPIO for the I2S word-select / LR clock (WS on the mic) |
+| **st_mic_bclk** | **(required)** | GPIO for the I2S bit clock (SCK on the mic) |
+| **st_mic_din** | **(required)** | GPIO for the I2S data input (SD on the mic) |
+| st_mic_adc_type | `external` | ADC source - external for standalone I2S mics (the deprecated internal ADC path is no longer supported) One of: `external`. |
+| st_mic_channel | `left` | Which I2S slot the mic drives (INMP441/SPH0645 with L/R tied low = left) One of: `left`, `right`, `stereo`. |
+| st_mic_bits_per_sample | `32bit` | I2S word width (INMP441/SPH0645 are 24-bit data in a 32-bit frame -> 32bit) One of: `8bit`, `16bit`, `24bit`, `32bit`. |
+| st_mic_sample_rate | `16000` | Sample rate in Hz |
+
+## Notes
+
+- micro_wake_word and voice_assistant both expect a 16 kHz mono microphone - keep st_mic_sample_rate at 16000 for them.
+- This template owns its own i2s_audio bus (id st_i2s_mic_bus). Single-I2S chips (ESP32-C3/C6) have only ONE I2S peripheral, so a mic and a speaker CANNOT run at the same time on them - use an ESP32 or ESP32-S3 (two I2S peripherals) to run microphone_i2s.yaml and speaker_i2s.yaml together.
+- INMP441/SPH0645 do not need a master clock (MCLK), so no i2s_mclk_pin is declared. Add one manually only if your mic requires it.

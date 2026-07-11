@@ -1,0 +1,25 @@
+# @template: captive_portal
+# @title: Captive Portal
+# @category: core
+# @description: WiFi fallback hotspot plus captive portal. When the device cannot join your WiFi it starts its own access point and serves a page to reconfigure credentials.
+# @platforms: esp32, esp32s2, esp32s3, esp32c3, esp32c6
+# @requires: wifi
+# @entities: none (recovery preset only)
+# @var st_ap_ssid [Fallback Hotspot]: SSID of the fallback access point the device raises when it can't join WiFi
+# @var st_ap_password [(required)]: Fallback AP password (>=8 chars for WPA2); pass via vars: { st_ap_password: !secret ap_password }
+# @note: This declares wifi: ap: - it deep-merges into your own wifi: block (with ssid/password), it does NOT replace it. Keep your station wifi: ssid/password in your top-level config.
+# @note: After ~1 minute of failed WiFi connection attempts the device raises the AP and serves the portal at http://192.168.4.1/. Connect a phone/laptop to the fallback SSID to reach it.
+# @note: A captive portal without a fallback AP is useless, so this file ships both together. The AP password must be at least 8 characters or WPA2 setup fails.
+
+defaults:
+  st_ap_ssid: Fallback Hotspot
+
+wifi:
+  # Deep-merges into the user's wifi: block. Their ssid/password (station mode)
+  # stay; this only adds the fallback access point.
+  ap:
+    ssid: ${st_ap_ssid}
+    # Required var - no default. Users pass: vars: { st_ap_password: !secret ap_password }
+    password: ${st_ap_password}
+
+captive_portal:

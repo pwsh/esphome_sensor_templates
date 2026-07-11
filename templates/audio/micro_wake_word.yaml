@@ -1,0 +1,53 @@
+# @template: micro_wake_word
+# @title: microWakeWord Detector
+# @category: audio
+# @description: On-device wake-word detection (microWakeWord) that listens on an I2S microphone and pulses a template binary sensor when the chosen wake word is heard.
+# @platforms: esp32, esp32s3, esp32c3, esp32c6
+# @requires: microphone (audio/microphone_i2s.yaml)
+# @entities: binary_sensor "Wake Word Detected"
+# @var st_name_prefix []: Prefix prepended to the entity name
+# @var st_disabled_by_default [false]: Ship the entity disabled in HA
+# @var st_internal [false]: Hide the entity from HA/web entirely
+# @var st_wake_word_model [okay_nabu] {okay_nabu|hey_jarvis|hey_mycroft|alexa}: Which officially hosted microWakeWord model to load
+# @var st_mww_microphone_id [st_microphone]: id of the microphone component to listen on (default matches microphone_i2s.yaml)
+# @note: REQUIRES a microphone - include audio/microphone_i2s.yaml (which provides microphone id st_microphone) alongside this file. The mic must be 16 kHz.
+# @note: Model files are downloaded at COMPILE time from the esphome/micro-wake-word-models repo (github:// source) - the build host needs internet access; nothing is fetched at runtime.
+# @note: microWakeWord runs a TensorFlow-Lite-Micro model and is memory hungry - an ESP32-S3 with PSRAM is the recommended target. It will validate on plain ESP32/C3/C6 but may not have the RAM to run reliably.
+# @note: stop_after_detection is set false so the detector keeps listening (and the binary sensor keeps pulsing) without a voice_assistant to restart it.
+
+defaults:
+  st_name_prefix: ""
+  st_disabled_by_default: "false"
+  st_internal: "false"
+  st_wake_word_model: okay_nabu
+  st_mww_microphone_id: st_microphone
+
+micro_wake_word:
+  microphone:
+    microphone: ${st_mww_microphone_id}
+  # Keep listening after a hit; the pulse below re-arms the binary sensor.
+  stop_after_detection: false
+  vad:
+  models:
+    - model: ${st_wake_word_model}
+  on_wake_word_detected:
+    - logger.log:
+        format: "Wake word detected: %s"
+        args: ['wake_word.c_str()']
+    # Pulse the binary sensor so HA/automations can react to the detection.
+    - binary_sensor.template.publish:
+        id: st_wake_word_detected
+        state: true
+    - delay: 1s
+    - binary_sensor.template.publish:
+        id: st_wake_word_detected
+        state: false
+
+binary_sensor:
+  - platform: template
+    id: st_wake_word_detected
+    name: "${st_name_prefix}Wake Word Detected"
+    device_class: sound
+    icon: mdi:account-voice
+    disabled_by_default: ${st_disabled_by_default}
+    internal: ${st_internal}

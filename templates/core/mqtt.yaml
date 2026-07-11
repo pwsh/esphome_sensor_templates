@@ -1,0 +1,30 @@
+# @template: mqtt
+# @title: MQTT
+# @category: core
+# @description: MQTT client preset with broker credentials and Home Assistant discovery. An alternative (or complement) to the native api: for brokers-based setups.
+# @platforms: esp32, esp32s2, esp32s3, esp32c3, esp32c6
+# @requires: wifi
+# @entities: none (connectivity preset only)
+# @var st_mqtt_broker [(required)]: MQTT broker hostname or IP
+# @var st_mqtt_port [1883]: MQTT broker TCP port
+# @var st_mqtt_username []: Broker username (empty = anonymous / no auth)
+# @var st_mqtt_password [(required)]: Broker password; pass via vars: { st_mqtt_password: !secret mqtt_password }
+# @var st_mqtt_discovery [true]: Publish Home Assistant MQTT discovery messages so entities appear automatically
+# @note: topic_prefix is intentionally NOT set here - ESPHome defaults it to the device name, and an empty prefix fails validation ("MQTT topic name/filter must not be empty"). Set a custom prefix with a top-level override: mqtt: { topic_prefix: home/living_room } (it deep-merges with this block).
+# @note: discovery accepts only "true"/"false". Related knobs (discovery_retain, discovery_unique_id_generator, discovery_prefix) are left at their ESPHome defaults - add them via !extend if needed.
+# @note: api: and mqtt: can coexist (both valid). If you run both, Home Assistant may show the device twice - once over the native API and once via MQTT discovery. Include only one unless you specifically want both transports.
+
+defaults:
+  st_mqtt_port: "1883"
+  st_mqtt_username: ""
+  st_mqtt_discovery: "true"
+
+mqtt:
+  # Required var - no default. broker is the only mandatory MQTT setting.
+  broker: ${st_mqtt_broker}
+  port: ${st_mqtt_port}
+  # Empty username = anonymous connection (broker permitting).
+  username: ${st_mqtt_username}
+  # Required var - no default. Users pass: vars: { st_mqtt_password: !secret mqtt_password }
+  password: ${st_mqtt_password}
+  discovery: ${st_mqtt_discovery}

@@ -1,0 +1,40 @@
+# @template: rf_receiver
+# @title: 433 MHz RF Receiver (RC Switch)
+# @category: remote
+# @description: 433 MHz RF receiver hub (RXB6 / superheterodyne class) that decodes RC Switch codes from cheap wall plugs and remotes and prints them to the log. Filter/idle/tolerance are pre-tuned for noisy 433 MHz receivers.
+# @platforms: esp32, esp32s2, esp32s3, esp32c3, esp32c6
+# @requires: none
+# @entities: none (receiver hub only - add binary_sensors via !extend, see notes)
+# @var st_rf_rx_pin [(required)]: GPIO wired to the receiver DATA pin
+# @var st_rf_dump [rc_switch] {rc_switch|raw|all}: Which decoded protocol(s) to print to the log
+# @var st_rf_tolerance [60%]: Timing tolerance - 60% is the doc-recommended value for noisy 433 MHz receivers
+# @var st_rf_filter [4us]: Ignore pulses shorter than this (de-noises the cheap AGC front-end)
+# @var st_rf_idle [4ms]: Gap that marks the end of a transmission
+# @note: The filter 4us / idle 4ms / tolerance 60% values are the ESPHome-documented rc_switch tuning for noisy 433 MHz receivers; leave them unless you have a clean signal.
+# @note: READ CODES FROM THE LOG - press a 433 MHz remote near the receiver and the decoded code prints at INFO, e.g. "Received RCSwitch Raw: protocol=1 data=0x151151". Copy the binary code and protocol into rf_transmitter.yaml to replay it.
+# @note: ADD A REMOTE BUTTON via !extend (not shipped, codes are device-specific). Example:
+#   binary_sensor:
+#     - platform: remote_receiver
+#       name: "Plug 1 On"
+#       rc_switch_raw:
+#         code: "000000000001010100010001"
+#         protocol: 1
+# @note: Cheap 433 MHz receivers are noisy; a proper antenna (17.3 cm wire) and a superheterodyne module (RXB6) decode far more reliably than the tiny green boards.
+
+defaults:
+  st_rf_dump: rc_switch
+  st_rf_tolerance: 60%
+  st_rf_filter: 4us
+  st_rf_idle: 4ms
+
+remote_receiver:
+  id: st_rf_receiver
+  pin:
+    number: ${st_rf_rx_pin}
+    mode:
+      input: true
+  dump: ${st_rf_dump}
+  # Pre-tuned for noisy 433 MHz superheterodyne receivers (ESPHome RF Bridge example values).
+  tolerance: ${st_rf_tolerance}
+  filter: ${st_rf_filter}
+  idle: ${st_rf_idle}

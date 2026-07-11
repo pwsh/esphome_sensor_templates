@@ -1,0 +1,49 @@
+# @template: fan_pwm
+# @title: PWM Fan (LEDC)
+# @category: peripherals
+# @description: Variable-speed fan driven by an ESP32 LEDC PWM output - a 4-wire PC fan (PWM on the control wire) or a MOSFET-driven 2-wire DC fan. Multi-instance via id/name vars.
+# @platforms: esp32, esp32s2, esp32s3, esp32c3, esp32c6
+# @requires: none
+# @entities: fan "Fan"
+# @var st_name_prefix []: Prefix prepended to the entity name
+# @var st_disabled_by_default [false]: Ship the entity disabled in HA
+# @var st_internal [false]: Hide the entity from HA/web entirely
+# @var st_fan_id [st_fan_pwm]: Entity id - MUST be overridden on every extra include (see notes)
+# @var st_fan_name [Fan]: Entity name (after st_name_prefix)
+# @var st_fan_pin [(required)]: GPIO driving the PWM control signal (4-wire fan blue wire, or a MOSFET gate)
+# @var st_fan_frequency [25000Hz]: LEDC PWM frequency - 25 kHz is the Intel 4-wire PC-fan standard (keeps PWM out of the audible range)
+# @var st_fan_speed_count [100]: Number of discrete speed steps HA/web exposes
+# @note: MULTI-INSTANCE - include more than once for several fans. Each extra include MUST override st_fan_id, st_fan_name AND st_fan_pin; duplicate ids or shared pins are errors. The LEDC output id is derived as ${st_fan_id}_out, so overriding the fan id keeps the output id unique too.
+# @note: 4-WIRE fans take the 25 kHz PWM on the control wire directly - the fan is powered from 12 V separately and only the PWM/tach signals touch the ESP. 2-WIRE / 3-WIRE DC fans have no PWM input: switch their power through a logic-level MOSFET on the control pin instead (they will whine at 25 kHz - drop st_fan_frequency to a lower value for those).
+# @note: TACHOMETER - a 4-wire fan's tach (green) wire gives RPM. Not shipped (needs the fan's pulses-per-revolution), add via !extend:
+#   sensor:
+#     - platform: pulse_counter
+#       pin: GPIOxx        # tach wire, with pullup
+#       name: "Fan RPM"
+#       unit_of_measurement: RPM
+#       filters: { multiply: 0.5 }   # 2 pulses per revolution
+
+defaults:
+  st_name_prefix: ""
+  st_disabled_by_default: "false"
+  st_internal: "false"
+  st_fan_id: st_fan_pwm
+  st_fan_name: "Fan"
+  st_fan_frequency: 25000Hz
+  st_fan_speed_count: "100"
+
+output:
+  - platform: ledc
+    # id concatenates the fan-id var textually, so it stays unique per include.
+    id: ${st_fan_id}_out
+    pin: ${st_fan_pin}
+    frequency: ${st_fan_frequency}
+
+fan:
+  - platform: speed
+    id: ${st_fan_id}
+    name: "${st_name_prefix}${st_fan_name}"
+    output: ${st_fan_id}_out
+    speed_count: ${st_fan_speed_count}
+    disabled_by_default: ${st_disabled_by_default}
+    internal: ${st_internal}

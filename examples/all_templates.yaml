@@ -34,6 +34,16 @@ packages:
   core_safe_mode: !include ../templates/core/safe_mode.yaml
   core_time_sntp: !include ../templates/core/time_sntp.yaml
   core_time_ha: !include ../templates/core/time_homeassistant.yaml
+  core_mdns: !include ../templates/core/mdns.yaml
+  core_captive_portal: !include
+    file: ../templates/core/captive_portal.yaml
+    vars: { st_ap_password: !secret ap_password }
+  core_mqtt: !include
+    file: ../templates/core/mqtt.yaml
+    vars: { st_mqtt_broker: 192.168.1.10, st_mqtt_password: !secret mqtt_password }
+  core_i2c: !include
+    file: ../templates/core/i2c.yaml
+    vars: { st_i2c_sda: GPIO1, st_i2c_scl: GPIO2 }
 
   # ── diagnostics ─────────────────────────────────────────────
   diag_uptime: !include ../templates/diagnostics/uptime.yaml
@@ -51,6 +61,57 @@ packages:
   diag_chip_info: !include ../templates/diagnostics/chip_info.yaml
   diag_flash_info: !include ../templates/diagnostics/flash_info.yaml
   diag_memory_info: !include ../templates/diagnostics/memory_info.yaml
+  diag_runtime_stats: !include ../templates/diagnostics/runtime_stats.yaml
+
+  # ── audio ───────────────────────────────────────────────────
+  audio_mic: !include
+    file: ../templates/audio/microphone_i2s.yaml
+    vars: { st_mic_lrclk: GPIO15, st_mic_bclk: GPIO16, st_mic_din: GPIO17 }
+  audio_speaker: !include
+    file: ../templates/audio/speaker_i2s.yaml
+    vars: { st_spk_lrclk: GPIO7, st_spk_bclk: GPIO8, st_spk_dout: GPIO18 }
+  audio_wake_word: !include ../templates/audio/micro_wake_word.yaml
+  audio_buzzer: !include
+    file: ../templates/audio/buzzer_rtttl.yaml
+    vars: { st_buzzer_pin: GPIO14 }
+
+  # ── bluetooth ───────────────────────────────────────────────
+  bt_tracker: !include ../templates/bluetooth/ble_tracker.yaml
+  bt_proxy: !include ../templates/bluetooth/bluetooth_proxy.yaml
+
+  # ── environment (name prefixes avoid duplicate entity names) ─
+  env_bme280: !include
+    file: ../templates/environment/bme280.yaml
+    vars: { st_name_prefix: "BME280 " }
+  env_sht3x: !include
+    file: ../templates/environment/sht3x.yaml
+    vars: { st_name_prefix: "SHT3x " }
+  env_aht20: !include
+    file: ../templates/environment/aht20.yaml
+    vars: { st_name_prefix: "AHT20 " }
+  env_dht: !include
+    file: ../templates/environment/dht.yaml
+    vars: { st_dht_pin: GPIO40, st_name_prefix: "DHT " }
+  env_ds18b20: !include
+    file: ../templates/environment/ds18b20.yaml
+    vars: { st_ds18b20_pin: GPIO41, st_name_prefix: "DS18B20 " }
+
+  # ── presence ────────────────────────────────────────────────
+  presence_ld2410: !include
+    file: ../templates/presence/ld2410.yaml
+    vars: { st_ld2410_uart_tx_pin: GPIO47, st_ld2410_uart_rx_pin: GPIO21 }
+
+  # ── peripherals (chip-agnostic ones; camera/IR/RF/LD2450 live
+  #    in peripherals_esp32.yaml, their pin maps want a classic ESP32) ─
+  periph_fan_pwm: !include
+    file: ../templates/peripherals/fan_pwm.yaml
+    vars: { st_fan_pin: GPIO42 }
+  periph_fan_gpio: !include
+    file: ../templates/peripherals/fan_gpio.yaml
+    vars: { st_fan_gpio_pin: GPIO45, st_fan_gpio_name: Exhaust Fan }
+  periph_gps: !include
+    file: ../templates/peripherals/gps.yaml
+    vars: { st_gps_rx_pin: GPIO46 }
 
   # ── network ─────────────────────────────────────────────────
   net_wifi_signal: !include ../templates/network/wifi_signal.yaml

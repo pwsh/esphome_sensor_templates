@@ -1,0 +1,50 @@
+# Classic-ESP32 peripherals example: camera (AI-Thinker pin map), IR/RF, LD2450,
+# syslog, and device_base providing the ENTIRE esphome: block from a package -
+# note this file has no esphome: key of its own. Pins chosen to clear the
+# camera's fixed claims (0,5,18,19,21,22,23,25,26,27,32,34,35,36,39).
+# Validate with:  esphome config examples/peripherals_esp32.yaml
+esp32:
+  board: esp32dev
+  framework:
+    type: esp-idf
+
+logger:
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+psram:
+
+packages:
+  device_base: !include
+    file: ../templates/core/device_base.yaml
+    vars:
+      st_device_name: sensor-templates-periph
+      st_friendly_name: Sensor Templates Peripherals
+      st_device_comment: Peripherals validation device
+      st_area: Workshop
+
+  time: !include ../templates/core/time_sntp.yaml
+  syslog: !include
+    file: ../templates/core/syslog.yaml
+    vars: { st_syslog_host: 192.168.1.20 }
+
+  camera: !include ../templates/peripherals/camera_ai_thinker.yaml
+
+  ir_rx: !include
+    file: ../templates/remote/ir_receiver.yaml
+    vars: { st_ir_rx_pin: GPIO33 }
+  ir_tx: !include
+    file: ../templates/remote/ir_transmitter.yaml
+    vars: { st_ir_tx_pin: GPIO4 }
+  rf_rx: !include
+    file: ../templates/remote/rf_receiver.yaml
+    vars: { st_rf_rx_pin: GPIO15 }
+  rf_tx: !include
+    file: ../templates/remote/rf_transmitter.yaml
+    vars: { st_rf_tx_pin: GPIO12 }
+
+  ld2450: !include
+    file: ../templates/presence/ld2450.yaml
+    vars: { st_ld2450_uart_tx_pin: GPIO17, st_ld2450_uart_rx_pin: GPIO16 }

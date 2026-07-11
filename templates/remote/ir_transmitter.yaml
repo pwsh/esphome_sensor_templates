@@ -1,0 +1,48 @@
+# @template: ir_transmitter
+# @title: IR Transmitter (LED)
+# @category: remote
+# @description: Infrared transmitter hub driving an IR LED, plus a demo template button that sends a sample NEC code. Use ir_receiver to learn codes, then replay them from here.
+# @platforms: esp32, esp32s2, esp32s3, esp32c3, esp32c6
+# @requires: none
+# @entities: button "IR Test"
+# @var st_name_prefix []: Prefix prepended to the entity name
+# @var st_disabled_by_default [false]: Ship the entity disabled in HA
+# @var st_internal [false]: Hide the entity from HA/web entirely
+# @var st_ir_tx_pin [(required)]: GPIO driving the IR LED (via a transistor for range)
+# @var st_ir_tx_id [st_ir_tx]: Base id for the demo button (button id is ${st_ir_tx_id}_test)
+# @var st_ir_tx_name [IR Test]: Name of the demo button (after st_name_prefix)
+# @var st_ir_test_address [0x1234]: 16-bit NEC address the demo button transmits
+# @var st_ir_test_command [0x78]: 16-bit NEC command the demo button transmits
+# @note: carrier_duty_percent is 50% - the documented value for IR LEDs (the ~38 kHz carrier is on half the time). RF transmitters use 100%; see rf_transmitter.yaml.
+# @note: The demo button sends a NEC frame via remote_transmitter.transmit_nec. Learn your real codes with ir_receiver.yaml (they print to the log), then set st_ir_test_address / st_ir_test_command, or add more buttons via !extend using transmit_nec / transmit_sony / transmit_raw / transmit_pronto.
+# @note: An ESP32 GPIO sources only ~20 mA; for usable range drive the IR LED through a transistor/MOSFET rather than directly off the pin.
+
+defaults:
+  st_name_prefix: ""
+  st_disabled_by_default: "false"
+  st_internal: "false"
+  st_ir_tx_id: st_ir_tx
+  st_ir_tx_name: "IR Test"
+  st_ir_test_address: "0x1234"
+  st_ir_test_command: "0x78"
+
+remote_transmitter:
+  id: st_ir_transmitter
+  pin: ${st_ir_tx_pin}
+  # 50% duty is the IR standard (carrier is modulated on/off around ~38 kHz).
+  carrier_duty_percent: 50%
+  # Explicit: the default flipped to non-blocking in 2025.11 and warns when unset.
+  non_blocking: true
+
+button:
+  - platform: template
+    id: ${st_ir_tx_id}_test
+    name: "${st_name_prefix}${st_ir_tx_name}"
+    entity_category: config
+    icon: mdi:remote
+    disabled_by_default: ${st_disabled_by_default}
+    internal: ${st_internal}
+    on_press:
+      - remote_transmitter.transmit_nec:
+          address: ${st_ir_test_address}
+          command: ${st_ir_test_command}

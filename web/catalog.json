@@ -5,10 +5,438 @@
     "diagnostics",
     "network",
     "lighting",
+    "audio",
+    "environment",
+    "presence",
+    "bluetooth",
+    "remote",
+    "peripherals",
     "controls",
     "inputs"
   ],
   "templates": [
+    {
+      "slug": "buzzer_rtttl",
+      "title": "Passive Piezo Buzzer (RTTTL)",
+      "category": "audio",
+      "description": "A passive piezo buzzer driven by an ESP32 LEDC PWM output through the rtttl tone generator, with a demo test button. rtttl.play is callable from automations or Home Assistant.",
+      "platforms": [
+        "esp32",
+        "esp32s2",
+        "esp32s3",
+        "esp32c3",
+        "esp32c6"
+      ],
+      "requires": [],
+      "entities": [
+        {
+          "domain": "button",
+          "name": "Buzzer Test"
+        }
+      ],
+      "vars": [
+        {
+          "name": "st_name_prefix",
+          "default": "",
+          "required": false,
+          "secret": false,
+          "description": "Prefix prepended to the entity name"
+        },
+        {
+          "name": "st_disabled_by_default",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Ship the entity disabled in HA"
+        },
+        {
+          "name": "st_internal",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Hide the entity from HA/web entirely"
+        },
+        {
+          "name": "st_buzzer_id",
+          "default": "st_buzzer",
+          "required": false,
+          "secret": false,
+          "description": "rtttl component id - MUST be overridden on every extra include (see notes)"
+        },
+        {
+          "name": "st_buzzer_name",
+          "default": "Buzzer",
+          "required": false,
+          "secret": false,
+          "description": "Base name used for the test button (\"<prefix><name> Test\")"
+        },
+        {
+          "name": "st_buzzer_pin",
+          "default": "",
+          "required": true,
+          "secret": false,
+          "description": "GPIO driving the passive buzzer"
+        },
+        {
+          "name": "st_buzzer_gain",
+          "default": "50%",
+          "required": false,
+          "secret": false,
+          "description": "rtttl output gain / volume (0%-100%)"
+        },
+        {
+          "name": "st_buzzer_test_tune",
+          "default": "two_short:d=4,o=5,b=100:16e6,16e6",
+          "required": false,
+          "secret": false,
+          "description": "RTTTL string played by the test button"
+        }
+      ],
+      "notes": [
+        "PASSIVE buzzers only. A passive piezo needs a PWM tone signal (this template). An ACTIVE buzzer has its own oscillator and just needs a plain GPIO on/off - use a switch/output template for those, not this file.",
+        "MULTI-INSTANCE - include this file more than once for several buzzers. Each extra include MUST override st_buzzer_id AND st_buzzer_pin (duplicate ids or shared pins are errors). The LEDC output id (${st_buzzer_id}_out) and test button id (${st_buzzer_id}_test) derive from st_buzzer_id, so overriding it keeps them unique too.",
+        "rtttl.play (id ${st_buzzer_id}) is callable from any automation or from Home Assistant to play arbitrary RTTTL ringtones, not just the demo tune."
+      ],
+      "path": "templates/audio/buzzer_rtttl.yaml",
+      "body": "defaults:\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n  st_buzzer_id: st_buzzer\n  st_buzzer_name: \"Buzzer\"\n  st_buzzer_gain: \"50%\"\n  st_buzzer_test_tune: \"two_short:d=4,o=5,b=100:16e6,16e6\"\n\n# LEDC PWM output feeding the tone generator. id derives from the buzzer id so it stays\n# unique per include.\noutput:\n  - platform: ledc\n    id: ${st_buzzer_id}_out\n    pin: ${st_buzzer_pin}\n\nrtttl:\n  id: ${st_buzzer_id}\n  output: ${st_buzzer_id}_out\n  gain: ${st_buzzer_gain}\n\nbutton:\n  - platform: template\n    id: ${st_buzzer_id}_test\n    name: \"${st_name_prefix}${st_buzzer_name} Test\"\n    entity_category: config\n    icon: mdi:music-note\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n    on_press:\n      - rtttl.play:\n          id: ${st_buzzer_id}\n          rtttl: \"${st_buzzer_test_tune}\"\n"
+    },
+    {
+      "slug": "micro_wake_word",
+      "title": "microWakeWord Detector",
+      "category": "audio",
+      "description": "On-device wake-word detection (microWakeWord) that listens on an I2S microphone and pulses a template binary sensor when the chosen wake word is heard.",
+      "platforms": [
+        "esp32",
+        "esp32s3",
+        "esp32c3",
+        "esp32c6"
+      ],
+      "requires": [
+        "microphone (audio/microphone_i2s.yaml)"
+      ],
+      "entities": [
+        {
+          "domain": "binary_sensor",
+          "name": "Wake Word Detected"
+        }
+      ],
+      "vars": [
+        {
+          "name": "st_name_prefix",
+          "default": "",
+          "required": false,
+          "secret": false,
+          "description": "Prefix prepended to the entity name"
+        },
+        {
+          "name": "st_disabled_by_default",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Ship the entity disabled in HA"
+        },
+        {
+          "name": "st_internal",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Hide the entity from HA/web entirely"
+        },
+        {
+          "name": "st_wake_word_model",
+          "default": "okay_nabu",
+          "required": false,
+          "secret": false,
+          "description": "Which officially hosted microWakeWord model to load",
+          "choices": [
+            "okay_nabu",
+            "hey_jarvis",
+            "hey_mycroft",
+            "alexa"
+          ]
+        },
+        {
+          "name": "st_mww_microphone_id",
+          "default": "st_microphone",
+          "required": false,
+          "secret": false,
+          "description": "id of the microphone component to listen on (default matches microphone_i2s.yaml)"
+        }
+      ],
+      "notes": [
+        "REQUIRES a microphone - include audio/microphone_i2s.yaml (which provides microphone id st_microphone) alongside this file. The mic must be 16 kHz.",
+        "Model files are downloaded at COMPILE time from the esphome/micro-wake-word-models repo (github:// source) - the build host needs internet access; nothing is fetched at runtime.",
+        "microWakeWord runs a TensorFlow-Lite-Micro model and is memory hungry - an ESP32-S3 with PSRAM is the recommended target. It will validate on plain ESP32/C3/C6 but may not have the RAM to run reliably.",
+        "stop_after_detection is set false so the detector keeps listening (and the binary sensor keeps pulsing) without a voice_assistant to restart it."
+      ],
+      "path": "templates/audio/micro_wake_word.yaml",
+      "body": "defaults:\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n  st_wake_word_model: okay_nabu\n  st_mww_microphone_id: st_microphone\n\nmicro_wake_word:\n  microphone:\n    microphone: ${st_mww_microphone_id}\n  # Keep listening after a hit; the pulse below re-arms the binary sensor.\n  stop_after_detection: false\n  vad:\n  models:\n    - model: ${st_wake_word_model}\n  on_wake_word_detected:\n    - logger.log:\n        format: \"Wake word detected: %s\"\n        args: ['wake_word.c_str()']\n    # Pulse the binary sensor so HA/automations can react to the detection.\n    - binary_sensor.template.publish:\n        id: st_wake_word_detected\n        state: true\n    - delay: 1s\n    - binary_sensor.template.publish:\n        id: st_wake_word_detected\n        state: false\n\nbinary_sensor:\n  - platform: template\n    id: st_wake_word_detected\n    name: \"${st_name_prefix}Wake Word Detected\"\n    device_class: sound\n    icon: mdi:account-voice\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n"
+    },
+    {
+      "slug": "microphone_i2s",
+      "title": "I2S MEMS Microphone",
+      "category": "audio",
+      "description": "An I2S digital MEMS microphone (INMP441 / SPH0645 class) on its own I2S bus, exposed as an ESPHome microphone component for use by micro_wake_word or voice_assistant.",
+      "platforms": [
+        "esp32",
+        "esp32s2",
+        "esp32s3",
+        "esp32c3",
+        "esp32c6"
+      ],
+      "requires": [],
+      "entities": [],
+      "vars": [
+        {
+          "name": "st_mic_lrclk",
+          "default": "",
+          "required": true,
+          "secret": false,
+          "description": "GPIO for the I2S word-select / LR clock (WS on the mic)"
+        },
+        {
+          "name": "st_mic_bclk",
+          "default": "",
+          "required": true,
+          "secret": false,
+          "description": "GPIO for the I2S bit clock (SCK on the mic)"
+        },
+        {
+          "name": "st_mic_din",
+          "default": "",
+          "required": true,
+          "secret": false,
+          "description": "GPIO for the I2S data input (SD on the mic)"
+        },
+        {
+          "name": "st_mic_adc_type",
+          "default": "external",
+          "required": false,
+          "secret": false,
+          "description": "ADC source - external for standalone I2S mics (the deprecated internal ADC path is no longer supported)",
+          "choices": [
+            "external"
+          ]
+        },
+        {
+          "name": "st_mic_channel",
+          "default": "left",
+          "required": false,
+          "secret": false,
+          "description": "Which I2S slot the mic drives (INMP441/SPH0645 with L/R tied low = left)",
+          "choices": [
+            "left",
+            "right",
+            "stereo"
+          ]
+        },
+        {
+          "name": "st_mic_bits_per_sample",
+          "default": "32bit",
+          "required": false,
+          "secret": false,
+          "description": "I2S word width (INMP441/SPH0645 are 24-bit data in a 32-bit frame -> 32bit)",
+          "choices": [
+            "8bit",
+            "16bit",
+            "24bit",
+            "32bit"
+          ]
+        },
+        {
+          "name": "st_mic_sample_rate",
+          "default": "16000",
+          "required": false,
+          "secret": false,
+          "description": "Sample rate in Hz"
+        }
+      ],
+      "notes": [
+        "micro_wake_word and voice_assistant both expect a 16 kHz mono microphone - keep st_mic_sample_rate at 16000 for them.",
+        "This template owns its own i2s_audio bus (id st_i2s_mic_bus). Single-I2S chips (ESP32-C3/C6) have only ONE I2S peripheral, so a mic and a speaker CANNOT run at the same time on them - use an ESP32 or ESP32-S3 (two I2S peripherals) to run microphone_i2s.yaml and speaker_i2s.yaml together.",
+        "INMP441/SPH0645 do not need a master clock (MCLK), so no i2s_mclk_pin is declared. Add one manually only if your mic requires it."
+      ],
+      "path": "templates/audio/microphone_i2s.yaml",
+      "body": "defaults:\n  st_mic_adc_type: external\n  st_mic_channel: left\n  st_mic_bits_per_sample: 32bit\n  st_mic_sample_rate: \"16000\"\n\n# Dedicated I2S bus for the microphone. Kept separate from any speaker bus so both\n# can coexist on dual-I2S chips (ESP32 / ESP32-S3).\ni2s_audio:\n  - id: st_i2s_mic_bus\n    i2s_lrclk_pin: ${st_mic_lrclk}\n    i2s_bclk_pin: ${st_mic_bclk}\n\nmicrophone:\n  - platform: i2s_audio\n    id: st_microphone\n    i2s_audio_id: st_i2s_mic_bus\n    adc_type: ${st_mic_adc_type}\n    i2s_din_pin: ${st_mic_din}\n    channel: ${st_mic_channel}\n    bits_per_sample: ${st_mic_bits_per_sample}\n    sample_rate: ${st_mic_sample_rate}\n"
+    },
+    {
+      "slug": "speaker_i2s",
+      "title": "I2S Amplifier / DAC Speaker",
+      "category": "audio",
+      "description": "An I2S class-D amplifier or DAC (MAX98357A class) on its own I2S bus, exposed as an ESPHome speaker component for media_player / voice_assistant audio output.",
+      "platforms": [
+        "esp32",
+        "esp32s2",
+        "esp32s3",
+        "esp32c3",
+        "esp32c6"
+      ],
+      "requires": [],
+      "entities": [],
+      "vars": [
+        {
+          "name": "st_spk_lrclk",
+          "default": "",
+          "required": true,
+          "secret": false,
+          "description": "GPIO for the I2S word-select / LR clock (LRC on the amp)"
+        },
+        {
+          "name": "st_spk_bclk",
+          "default": "",
+          "required": true,
+          "secret": false,
+          "description": "GPIO for the I2S bit clock (BCLK on the amp)"
+        },
+        {
+          "name": "st_spk_dout",
+          "default": "",
+          "required": true,
+          "secret": false,
+          "description": "GPIO for the I2S data output (DIN on the amp)"
+        },
+        {
+          "name": "st_spk_dac_type",
+          "default": "external",
+          "required": false,
+          "secret": false,
+          "description": "DAC type - external for an outboard I2S amp/DAC like the MAX98357A",
+          "choices": [
+            "external"
+          ]
+        },
+        {
+          "name": "st_spk_channel",
+          "default": "mono",
+          "required": false,
+          "secret": false,
+          "description": "Output channel mapping (MAX98357A is a single mono amp -> mono)",
+          "choices": [
+            "left",
+            "right",
+            "mono",
+            "stereo"
+          ]
+        },
+        {
+          "name": "st_spk_bits_per_sample",
+          "default": "16bit",
+          "required": false,
+          "secret": false,
+          "description": "I2S word width sent to the amp",
+          "choices": [
+            "8bit",
+            "16bit",
+            "24bit",
+            "32bit"
+          ]
+        },
+        {
+          "name": "st_spk_sample_rate",
+          "default": "16000",
+          "required": false,
+          "secret": false,
+          "description": "Sample rate in Hz (16000 matches voice_assistant TTS; raise to 44100/48000 for music)"
+        }
+      ],
+      "notes": [
+        "This template owns its own i2s_audio bus (id st_i2s_spk_bus). Single-I2S chips (ESP32-C3/C6) have only ONE I2S peripheral, so a speaker and a microphone CANNOT run at the same time on them - use an ESP32 or ESP32-S3 (two I2S peripherals) to run speaker_i2s.yaml and microphone_i2s.yaml together.",
+        "The MAX98357A output volume/gain is set in HARDWARE by the GAIN pin strapping, not in ESPHome - there is no software gain key on this platform."
+      ],
+      "path": "templates/audio/speaker_i2s.yaml",
+      "body": "defaults:\n  st_spk_dac_type: external\n  st_spk_channel: mono\n  st_spk_bits_per_sample: 16bit\n  st_spk_sample_rate: \"16000\"\n\n# Dedicated I2S bus for the speaker. Kept separate from any microphone bus so both\n# can coexist on dual-I2S chips (ESP32 / ESP32-S3).\ni2s_audio:\n  - id: st_i2s_spk_bus\n    i2s_lrclk_pin: ${st_spk_lrclk}\n    i2s_bclk_pin: ${st_spk_bclk}\n\nspeaker:\n  - platform: i2s_audio\n    id: st_speaker\n    i2s_audio_id: st_i2s_spk_bus\n    dac_type: ${st_spk_dac_type}\n    i2s_dout_pin: ${st_spk_dout}\n    channel: ${st_spk_channel}\n    bits_per_sample: ${st_spk_bits_per_sample}\n    sample_rate: ${st_spk_sample_rate}\n"
+    },
+    {
+      "slug": "ble_tracker",
+      "title": "ESP32 BLE Tracker",
+      "category": "bluetooth",
+      "description": "Enables the ESP32 Bluetooth Low Energy scanner so ble_presence / ble_rssi and related BLE platforms can see nearby devices. Sets sensible scan parameters.",
+      "platforms": [
+        "esp32",
+        "esp32s3",
+        "esp32c3",
+        "esp32c6"
+      ],
+      "requires": [],
+      "entities": [],
+      "vars": [
+        {
+          "name": "st_ble_scan_interval",
+          "default": "320ms",
+          "required": false,
+          "secret": false,
+          "description": "Time between the start of consecutive scan windows"
+        },
+        {
+          "name": "st_ble_scan_window",
+          "default": "30ms",
+          "required": false,
+          "secret": false,
+          "description": "How long the radio actively listens within each interval (must be <= interval)"
+        },
+        {
+          "name": "st_ble_scan_duration",
+          "default": "5min",
+          "required": false,
+          "secret": false,
+          "description": "How long a scan runs before the stack restarts it (clears the found-devices cache)"
+        },
+        {
+          "name": "st_ble_active",
+          "default": "true",
+          "required": false,
+          "secret": false,
+          "description": "C++ literal \"true\"/\"false\" - true sends scan requests to also collect scan-response (active scan); false is passive/lower-power"
+        }
+      ],
+      "notes": [
+        "NOT available on ESP32-S2 - that chip has no Bluetooth radio at all. Works on esp32, esp32s3, esp32c3 and esp32c6.",
+        "The BLE stack costs a significant chunk of RAM and flash - expect a noticeable heap drop after enabling it. It is frequently paired with bluetooth_proxy.yaml (which depends on this scanner).",
+        "On single-core chips (ESP32-C3) both WiFi and the BLE tracker share one core; enable software_coexistence manually if you see WiFi/BLE contention."
+      ],
+      "path": "templates/bluetooth/ble_tracker.yaml",
+      "body": "defaults:\n  st_ble_scan_interval: 320ms\n  st_ble_scan_window: 30ms\n  st_ble_scan_duration: 5min\n  st_ble_active: \"true\"\n\nesp32_ble_tracker:\n  id: st_ble_tracker\n  scan_parameters:\n    interval: ${st_ble_scan_interval}\n    window: ${st_ble_scan_window}\n    duration: ${st_ble_scan_duration}\n    active: ${st_ble_active}\n"
+    },
+    {
+      "slug": "bluetooth_proxy",
+      "title": "Bluetooth Proxy",
+      "category": "bluetooth",
+      "description": "Turns the device into a Home Assistant Bluetooth proxy, forwarding nearby BLE advertisements (and optionally active GATT connections) to HA over the native API.",
+      "platforms": [
+        "esp32",
+        "esp32s3",
+        "esp32c3",
+        "esp32c6"
+      ],
+      "requires": [
+        "api"
+      ],
+      "entities": [],
+      "vars": [
+        {
+          "name": "st_bt_proxy_active",
+          "default": "true",
+          "required": false,
+          "secret": false,
+          "description": "C++ literal \"true\"/\"false\" - true allows HA to open active GATT connections through this proxy; false is advertisement-only (passive)"
+        },
+        {
+          "name": "st_bt_proxy_connection_slots",
+          "default": "3",
+          "required": false,
+          "secret": false,
+          "description": "Max simultaneous active BLE connections (1-9; keep <=5 for stability/memory)"
+        }
+      ],
+      "notes": [
+        "This file does NOT declare esp32_ble_tracker - bluetooth_proxy AUTO-LOADS the BLE tracker for you, so the scanner is enabled automatically with default scan parameters.",
+        "SAFE to also include bluetooth/ble_tracker.yaml if you want to tune scan parameters - the auto-loaded tracker and the explicit esp32_ble_tracker block merge cleanly (verified: no duplicate-component error). Include ble_tracker.yaml only when you need to change interval/window/duration/active.",
+        "Active connections are limited (default 3, hard max 9); each open GATT connection uses RAM, so keep the count low.",
+        "NOT available on ESP32-S2 (no Bluetooth radio). Requires the native API (api:) enabled and the device adopted into Home Assistant."
+      ],
+      "path": "templates/bluetooth/bluetooth_proxy.yaml",
+      "body": "defaults:\n  st_bt_proxy_active: \"true\"\n  st_bt_proxy_connection_slots: \"3\"\n\n# esp32_ble_tracker is auto-loaded by bluetooth_proxy; it is intentionally NOT declared\n# here so it stays overridable via bluetooth/ble_tracker.yaml.\nbluetooth_proxy:\n  active: ${st_bt_proxy_active}\n  connection_slots: ${st_bt_proxy_connection_slots}\n"
+    },
     {
       "slug": "daily_restart",
       "title": "Daily Scheduled Restart",
@@ -323,6 +751,171 @@
       "body": "defaults:\n  st_api_reboot_timeout: 0s\n\napi:\n  # reboot_timeout defaults to 15min in ESPHome. With any short timeout the\n  # device reboot-loops whenever Home Assistant is unreachable longer than the\n  # window - HA restarts, HA OS updates, add-on upgrades - and every reboot\n  # wipes in-RAM state (uptime, un-persisted globals, sensor history). Setting\n  # 0s means \"never reboot just because the API is down\": the device keeps\n  # running standalone and stays usable via web_server until HA returns.\n  reboot_timeout: ${st_api_reboot_timeout}\n  encryption:\n    # Required var - no default. Users pass: vars: { st_api_key: !secret api_key }\n    key: ${st_api_key}\n"
     },
     {
+      "slug": "captive_portal",
+      "title": "Captive Portal",
+      "category": "core",
+      "description": "WiFi fallback hotspot plus captive portal. When the device cannot join your WiFi it starts its own access point and serves a page to reconfigure credentials.",
+      "platforms": [
+        "esp32",
+        "esp32s2",
+        "esp32s3",
+        "esp32c3",
+        "esp32c6"
+      ],
+      "requires": [
+        "wifi"
+      ],
+      "entities": [],
+      "vars": [
+        {
+          "name": "st_ap_ssid",
+          "default": "Fallback Hotspot",
+          "required": false,
+          "secret": false,
+          "description": "SSID of the fallback access point the device raises when it can't join WiFi"
+        },
+        {
+          "name": "st_ap_password",
+          "default": "",
+          "required": true,
+          "secret": true,
+          "description": "Fallback AP password (>=8 chars for WPA2); pass via vars: { st_ap_password: !secret ap_password }"
+        }
+      ],
+      "notes": [
+        "This declares wifi: ap: - it deep-merges into your own wifi: block (with ssid/password), it does NOT replace it. Keep your station wifi: ssid/password in your top-level config.",
+        "After ~1 minute of failed WiFi connection attempts the device raises the AP and serves the portal at http://192.168.4.1/. Connect a phone/laptop to the fallback SSID to reach it.",
+        "A captive portal without a fallback AP is useless, so this file ships both together. The AP password must be at least 8 characters or WPA2 setup fails."
+      ],
+      "path": "templates/core/captive_portal.yaml",
+      "body": "defaults:\n  st_ap_ssid: Fallback Hotspot\n\nwifi:\n  # Deep-merges into the user's wifi: block. Their ssid/password (station mode)\n  # stay; this only adds the fallback access point.\n  ap:\n    ssid: ${st_ap_ssid}\n    # Required var - no default. Users pass: vars: { st_ap_password: !secret ap_password }\n    password: ${st_ap_password}\n\ncaptive_portal:\n"
+    },
+    {
+      "slug": "device_base",
+      "title": "Device Identity",
+      "category": "core",
+      "description": "The esphome: identity block - device name, friendly_name, comment, project metadata and Home Assistant area. Include this INSTEAD of writing your own esphome: name/friendly_name.",
+      "platforms": [
+        "esp32",
+        "esp32s2",
+        "esp32s3",
+        "esp32c3",
+        "esp32c6"
+      ],
+      "requires": [],
+      "entities": [],
+      "vars": [
+        {
+          "name": "st_device_name",
+          "default": "",
+          "required": true,
+          "secret": false,
+          "description": "Node name / hostname - lowercase letters, digits and hyphens only, <=24 chars (<=31 without a MAC suffix)"
+        },
+        {
+          "name": "st_friendly_name",
+          "default": "",
+          "required": true,
+          "secret": false,
+          "description": "Human-friendly display name shown in Home Assistant"
+        },
+        {
+          "name": "st_device_comment",
+          "default": "",
+          "required": false,
+          "secret": false,
+          "description": "Optional one-line description shown in the ESPHome/HA UI (empty = omitted)"
+        },
+        {
+          "name": "st_project_name",
+          "default": "pwsh.esphome_sensor_templates",
+          "required": false,
+          "secret": false,
+          "description": "Project id in author_name.project_name (namespace.project) format"
+        },
+        {
+          "name": "st_project_version",
+          "default": "1.0.0",
+          "required": false,
+          "secret": false,
+          "description": "Free-form project version string"
+        },
+        {
+          "name": "st_area",
+          "default": "",
+          "required": false,
+          "secret": false,
+          "description": "Home Assistant area name for this device as a plain string (empty = no area; see note)"
+        }
+      ],
+      "notes": [
+        "This file IS your esphome: block. Include it INSTEAD of writing your own esphome: name/friendly_name. Your top-level config must NOT declare esphome: name - put the board under esp32:, and let the whole identity block come from this package (top-level keys deep-merge, so a second esphome: name would clobber this one).",
+        "project.name MUST be author_name.project_name (namespace.project) - a bare word without a dot fails validation. The version is any string.",
+        "area takes a plain string here. For the structured areas/sub-devices form (esphome: area: {id, name} plus a top-level areas:/devices: list) add that at your top level - it deep-merges with this block."
+      ],
+      "path": "templates/core/device_base.yaml",
+      "body": "defaults:\n  st_device_comment: \"\"\n  st_project_name: pwsh.esphome_sensor_templates\n  st_project_version: 1.0.0\n  st_area: \"\"\n\nesphome:\n  # name/friendly_name are required vars - no defaults. The user supplies them\n  # via vars: { st_device_name: my-node, st_friendly_name: \"My Node\" }. This is\n  # the whole esphome: identity block, so the top-level config must not set its\n  # own esphome: name (that would deep-merge and clobber this one).\n  name: ${st_device_name}\n  friendly_name: ${st_friendly_name}\n  comment: ${st_device_comment}\n  area: ${st_area}\n  project:\n    name: ${st_project_name}\n    version: ${st_project_version}\n"
+    },
+    {
+      "slug": "i2c",
+      "title": "I2C Bus",
+      "category": "core",
+      "description": "The shared I2C bus (id st_i2c_bus) that environment-category I2C sensor templates attach to. Include once; every I2C sensor points at it via its *_i2c_id var.",
+      "platforms": [
+        "esp32",
+        "esp32s2",
+        "esp32s3",
+        "esp32c3",
+        "esp32c6"
+      ],
+      "requires": [],
+      "entities": [],
+      "vars": [
+        {
+          "name": "st_i2c_sda",
+          "default": "",
+          "required": true,
+          "secret": false,
+          "description": "GPIO for the I2C SDA (data) line"
+        },
+        {
+          "name": "st_i2c_scl",
+          "default": "",
+          "required": true,
+          "secret": false,
+          "description": "GPIO for the I2C SCL (clock) line"
+        },
+        {
+          "name": "st_i2c_scan",
+          "default": "true",
+          "required": false,
+          "secret": false,
+          "description": "Scan the bus for devices at boot and log the addresses found (handy while wiring)"
+        },
+        {
+          "name": "st_i2c_frequency",
+          "default": "50kHz",
+          "required": false,
+          "secret": false,
+          "description": "Bus clock speed (ESPHome default 50kHz; raise to 100kHz/400kHz for fast sensors on short, well-pulled-up wiring)",
+          "choices": [
+            "10kHz",
+            "50kHz",
+            "100kHz",
+            "200kHz",
+            "400kHz",
+            "800kHz"
+          ]
+        }
+      ],
+      "notes": [
+        "This is the shared bus per the library's \"Shared hardware buses\" convention. I2C sensor templates declare @requires: i2c and set i2c_id: ${st_<tpl>_i2c_id} defaulting to st_i2c_bus - they never declare their own i2c: block. Include this file exactly once.",
+        "SDA/SCL need external pull-up resistors (typically 4.7k to 3.3V); most breakout boards include them. If the boot scan finds nothing, check wiring and pull-ups before raising the frequency."
+      ],
+      "path": "templates/core/i2c.yaml",
+      "body": "defaults:\n  st_i2c_scan: \"true\"\n  st_i2c_frequency: 50kHz\n\ni2c:\n  - id: st_i2c_bus\n    # Required vars - no defaults. Board I2C pins vary, so the user must set them.\n    sda: ${st_i2c_sda}\n    scl: ${st_i2c_scl}\n    scan: ${st_i2c_scan}\n    frequency: ${st_i2c_frequency}\n"
+    },
+    {
       "slug": "logger",
       "title": "Logger",
       "category": "core",
@@ -366,6 +959,99 @@
       ],
       "path": "templates/core/logger.yaml",
       "body": "defaults:\n  st_log_level: INFO\n  st_log_baud_rate: \"115200\"\n\nlogger:\n  level: ${st_log_level}\n  # Set st_log_baud_rate to 0 to turn off UART logging (frees the serial pins,\n  # saves the cost of formatting/writing every line to the port).\n  baud_rate: ${st_log_baud_rate}\n"
+    },
+    {
+      "slug": "mdns",
+      "title": "mDNS",
+      "category": "core",
+      "description": "mDNS preset - controls whether the device advertises itself on the local network via multicast DNS. Enabled by default; this preset exists mainly to turn it off.",
+      "platforms": [
+        "esp32",
+        "esp32s2",
+        "esp32s3",
+        "esp32c3",
+        "esp32c6"
+      ],
+      "requires": [
+        "wifi"
+      ],
+      "entities": [],
+      "vars": [
+        {
+          "name": "st_mdns_disabled",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Set \"true\" to stop advertising this device over mDNS"
+        }
+      ],
+      "notes": [
+        "Disabling mDNS breaks the ESPHome dashboard's online/offline detection and Home Assistant discovery by hostname (<name>.local). OTA and the API by fixed IP still work - you just have to address the device by IP, not hostname.",
+        "mDNS is already enabled by default in ESPHome; you only need this file to disable it or (later) to add custom advertised services via !extend."
+      ],
+      "path": "templates/core/mdns.yaml",
+      "body": "defaults:\n  st_mdns_disabled: \"false\"\n\nmdns:\n  disabled: ${st_mdns_disabled}\n"
+    },
+    {
+      "slug": "mqtt",
+      "title": "MQTT",
+      "category": "core",
+      "description": "MQTT client preset with broker credentials and Home Assistant discovery. An alternative (or complement) to the native api: for brokers-based setups.",
+      "platforms": [
+        "esp32",
+        "esp32s2",
+        "esp32s3",
+        "esp32c3",
+        "esp32c6"
+      ],
+      "requires": [
+        "wifi"
+      ],
+      "entities": [],
+      "vars": [
+        {
+          "name": "st_mqtt_broker",
+          "default": "",
+          "required": true,
+          "secret": false,
+          "description": "MQTT broker hostname or IP"
+        },
+        {
+          "name": "st_mqtt_port",
+          "default": "1883",
+          "required": false,
+          "secret": false,
+          "description": "MQTT broker TCP port"
+        },
+        {
+          "name": "st_mqtt_username",
+          "default": "",
+          "required": false,
+          "secret": false,
+          "description": "Broker username (empty = anonymous / no auth)"
+        },
+        {
+          "name": "st_mqtt_password",
+          "default": "",
+          "required": true,
+          "secret": true,
+          "description": "Broker password; pass via vars: { st_mqtt_password: !secret mqtt_password }"
+        },
+        {
+          "name": "st_mqtt_discovery",
+          "default": "true",
+          "required": false,
+          "secret": false,
+          "description": "Publish Home Assistant MQTT discovery messages so entities appear automatically"
+        }
+      ],
+      "notes": [
+        "topic_prefix is intentionally NOT set here - ESPHome defaults it to the device name, and an empty prefix fails validation (\"MQTT topic name/filter must not be empty\"). Set a custom prefix with a top-level override: mqtt: { topic_prefix: home/living_room } (it deep-merges with this block).",
+        "discovery accepts only \"true\"/\"false\". Related knobs (discovery_retain, discovery_unique_id_generator, discovery_prefix) are left at their ESPHome defaults - add them via !extend if needed.",
+        "api: and mqtt: can coexist (both valid). If you run both, Home Assistant may show the device twice - once over the native API and once via MQTT discovery. Include only one unless you specifically want both transports."
+      ],
+      "path": "templates/core/mqtt.yaml",
+      "body": "defaults:\n  st_mqtt_port: \"1883\"\n  st_mqtt_username: \"\"\n  st_mqtt_discovery: \"true\"\n\nmqtt:\n  # Required var - no default. broker is the only mandatory MQTT setting.\n  broker: ${st_mqtt_broker}\n  port: ${st_mqtt_port}\n  # Empty username = anonymous connection (broker permitting).\n  username: ${st_mqtt_username}\n  # Required var - no default. Users pass: vars: { st_mqtt_password: !secret mqtt_password }\n  password: ${st_mqtt_password}\n  discovery: ${st_mqtt_discovery}\n"
     },
     {
       "slug": "ota",
@@ -440,6 +1126,84 @@
       ],
       "path": "templates/core/safe_mode.yaml",
       "body": "defaults:\n  st_safe_mode_attempts: \"10\"\n  st_safe_mode_reboot_timeout: 5min\n  st_safe_mode_boot_good_after: 1min\n\nsafe_mode:\n  num_attempts: ${st_safe_mode_attempts}\n  reboot_timeout: ${st_safe_mode_reboot_timeout}\n  boot_is_good_after: ${st_safe_mode_boot_good_after}\n  on_safe_mode:\n    - logger.log: \"Safe mode activated\"\n"
+    },
+    {
+      "slug": "syslog",
+      "title": "Syslog",
+      "category": "core",
+      "description": "Forwards ESPHome logs to a remote syslog server over UDP using the official syslog component. Useful for centralised log collection when a device is not attached to a serial console.",
+      "platforms": [
+        "esp32",
+        "esp32s2",
+        "esp32s3",
+        "esp32c3",
+        "esp32c6"
+      ],
+      "requires": [
+        "wifi",
+        "time"
+      ],
+      "entities": [],
+      "vars": [
+        {
+          "name": "st_syslog_host",
+          "default": "",
+          "required": true,
+          "secret": false,
+          "description": "Syslog server hostname or IP to send log packets to"
+        },
+        {
+          "name": "st_syslog_port",
+          "default": "514",
+          "required": false,
+          "secret": false,
+          "description": "Destination UDP port on the syslog server (standard syslog = 514)"
+        },
+        {
+          "name": "st_syslog_level",
+          "default": "DEBUG",
+          "required": false,
+          "secret": false,
+          "description": "Highest log level to forward to the server",
+          "choices": [
+            "NONE",
+            "ERROR",
+            "WARN",
+            "INFO",
+            "DEBUG",
+            "VERBOSE",
+            "VERY_VERBOSE"
+          ]
+        },
+        {
+          "name": "st_syslog_facility",
+          "default": "16",
+          "required": false,
+          "secret": false,
+          "description": "Syslog facility number (16 = local0, the usual choice for app logs)"
+        },
+        {
+          "name": "st_syslog_strip",
+          "default": "true",
+          "required": false,
+          "secret": false,
+          "description": "Strip ANSI color codes from forwarded messages (most syslog servers can't render them)"
+        },
+        {
+          "name": "st_syslog_time_id",
+          "default": "st_time_sntp",
+          "required": false,
+          "secret": false,
+          "description": "id of the time component used to timestamp messages (st_time_ha for the HA time preset)"
+        }
+      ],
+      "notes": [
+        "This is the OFFICIAL ESPHome syslog component (https://esphome.io/components/syslog/) - it is in mainline ESPHome, works on ESP-IDF, and pulls NO third-party code. (The older third-party github.com/TheStaticTurtle/esphome_syslog was archived Oct 2025 and is arduino-only, so it is deliberately not used here.)",
+        "Needs a time: component. Include core/time_sntp.yaml (default) or core/time_homeassistant.yaml (then pass st_syslog_time_id: st_time_ha). It also declares its own udp: client (id st_syslog_udp) pointed at the server address.",
+        "Transport is plain UDP with no encryption or delivery guarantee - logs travel in cleartext on your LAN and packets can be dropped. Keep it to a trusted network."
+      ],
+      "path": "templates/core/syslog.yaml",
+      "body": "defaults:\n  st_syslog_port: \"514\"\n  st_syslog_level: DEBUG\n  st_syslog_facility: \"16\"\n  st_syslog_strip: \"true\"\n  st_syslog_time_id: st_time_sntp\n\n# The syslog component sends through a udp: client. This declares a dedicated\n# one aimed at the server; addresses is a list, so the required host is the\n# single unicast target.\nudp:\n  id: st_syslog_udp\n  addresses:\n    - ${st_syslog_host}\n\nsyslog:\n  udp_id: st_syslog_udp\n  # Attach to an already-included time component for RFC-compliant timestamps.\n  time_id: ${st_syslog_time_id}\n  port: ${st_syslog_port}\n  level: ${st_syslog_level}\n  facility: ${st_syslog_facility}\n  strip: ${st_syslog_strip}\n"
     },
     {
       "slug": "time_homeassistant",
@@ -1309,6 +2073,36 @@
       "body": "defaults:\n  st_update_interval: 60s\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n  st_state_class: measurement\n\n# Shared debug hub (merges with other debug-based templates).\ndebug:\n  update_interval: ${st_update_interval}\n\nsensor:\n  - platform: debug\n    # Only populated when the psram: component is configured and the module\n    # actually has SPI RAM - otherwise reports 0.\n    psram:\n      id: st_psram_free\n      name: \"${st_name_prefix}PSRAM Free\"\n      unit_of_measurement: B\n      device_class: data_size\n      state_class: \"${st_state_class}\"\n      entity_category: diagnostic\n      disabled_by_default: ${st_disabled_by_default}\n      internal: ${st_internal}\n      icon: mdi:memory\n"
     },
     {
+      "slug": "runtime_stats",
+      "title": "Runtime Stats",
+      "category": "diagnostics",
+      "description": "Enables the runtime_stats component, which periodically logs per-component loop execution time (count, average, max, total) to the console. A debugging aid - it exposes no entities.",
+      "platforms": [
+        "esp32",
+        "esp32s2",
+        "esp32s3",
+        "esp32c3",
+        "esp32c6"
+      ],
+      "requires": [],
+      "entities": [],
+      "vars": [
+        {
+          "name": "st_runtime_stats_log_interval",
+          "default": "60s",
+          "required": false,
+          "secret": false,
+          "description": "How often to print the runtime statistics report to the log"
+        }
+      ],
+      "notes": [
+        "This is a debugging tool. Collecting the stats adds overhead to every component execution, so remove this package once you have finished profiling rather than leaving it enabled long-term.",
+        "Output goes to the logger at INFO level (there are no sensor entities). Watch it with `esphome logs` or the log viewer. A shorter log_interval means more log volume."
+      ],
+      "path": "templates/diagnostics/runtime_stats.yaml",
+      "body": "defaults:\n  st_runtime_stats_log_interval: 60s\n\nruntime_stats:\n  log_interval: ${st_runtime_stats_log_interval}\n"
+    },
+    {
       "slug": "uptime",
       "title": "Uptime (seconds)",
       "category": "diagnostics",
@@ -1417,6 +2211,444 @@
       ],
       "path": "templates/diagnostics/uptime_text.yaml",
       "body": "defaults:\n  st_update_interval: 60s\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n\ntext_sensor:\n  - platform: uptime\n    id: st_uptime_text\n    name: \"${st_name_prefix}Uptime\"\n    icon: mdi:timer-outline\n    entity_category: diagnostic\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n    update_interval: ${st_update_interval}\n    # Built-in formatting: separator + per-unit suffixes yield \"3d 4h 12m 5s\".\n    format:\n      separator: \" \"\n      days: \"d\"\n      hours: \"h\"\n      minutes: \"m\"\n      seconds: \"s\"\n"
+    },
+    {
+      "slug": "aht20",
+      "title": "AHT20 Temperature & Humidity",
+      "category": "environment",
+      "description": "Reads temperature and humidity from an Aosong AHT10/AHT20/AHT30 over I2C. Shares the library I2C bus.",
+      "platforms": [
+        "esp32",
+        "esp32s2",
+        "esp32s3",
+        "esp32c3",
+        "esp32c6"
+      ],
+      "requires": [
+        "i2c"
+      ],
+      "entities": [
+        {
+          "domain": "sensor",
+          "name": "Temperature"
+        },
+        {
+          "domain": "sensor",
+          "name": "Humidity"
+        }
+      ],
+      "vars": [
+        {
+          "name": "st_update_interval",
+          "default": "60s",
+          "required": false,
+          "secret": false,
+          "description": "How often to sample the sensor"
+        },
+        {
+          "name": "st_name_prefix",
+          "default": "",
+          "required": false,
+          "secret": false,
+          "description": "Prefix prepended to every entity name"
+        },
+        {
+          "name": "st_disabled_by_default",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Ship the entities disabled in HA"
+        },
+        {
+          "name": "st_internal",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Hide the entities from HA/web entirely"
+        },
+        {
+          "name": "st_state_class",
+          "default": "measurement",
+          "required": false,
+          "secret": false,
+          "description": "state_class for both readings; set \"\" to opt out of HA long-term statistics"
+        },
+        {
+          "name": "st_aht20_i2c_id",
+          "default": "st_i2c_bus",
+          "required": false,
+          "secret": false,
+          "description": "id of the I2C bus to use (from core/i2c.yaml)"
+        },
+        {
+          "name": "st_aht20_variant",
+          "default": "AHT20",
+          "required": false,
+          "secret": false,
+          "description": "Chip variant - use AHT20 for AHT20 and AHT30 modules",
+          "choices": [
+            "AHT10",
+            "AHT20"
+          ]
+        }
+      ],
+      "notes": [
+        "Requires the shared I2C bus - include core/i2c.yaml. The AHT10/20/30 all share the fixed I2C address 0x38.",
+        "If an AHT10-labelled module fails to read, switch st_aht20_variant to AHT20 (some clones need it)."
+      ],
+      "path": "templates/environment/aht20.yaml",
+      "body": "defaults:\n  st_update_interval: 60s\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n  st_state_class: measurement\n  st_aht20_i2c_id: st_i2c_bus\n  st_aht20_variant: AHT20\n\nsensor:\n  - platform: aht10\n    i2c_id: ${st_aht20_i2c_id}\n    variant: ${st_aht20_variant}\n    update_interval: ${st_update_interval}\n    temperature:\n      id: st_aht20_temperature\n      name: \"${st_name_prefix}Temperature\"\n      device_class: temperature\n      unit_of_measurement: \"°C\"\n      accuracy_decimals: 1\n      state_class: \"${st_state_class}\"\n      disabled_by_default: ${st_disabled_by_default}\n      internal: ${st_internal}\n    humidity:\n      id: st_aht20_humidity\n      name: \"${st_name_prefix}Humidity\"\n      device_class: humidity\n      unit_of_measurement: \"%\"\n      accuracy_decimals: 1\n      state_class: \"${st_state_class}\"\n      disabled_by_default: ${st_disabled_by_default}\n      internal: ${st_internal}\n"
+    },
+    {
+      "slug": "bme280",
+      "title": "BME280 Temperature / Humidity / Pressure",
+      "category": "environment",
+      "description": "Reads temperature, humidity and barometric pressure from a Bosch BME280 over I2C. Shares the library I2C bus.",
+      "platforms": [
+        "esp32",
+        "esp32s2",
+        "esp32s3",
+        "esp32c3",
+        "esp32c6"
+      ],
+      "requires": [
+        "i2c"
+      ],
+      "entities": [
+        {
+          "domain": "sensor",
+          "name": "Temperature"
+        },
+        {
+          "domain": "sensor",
+          "name": "Humidity"
+        },
+        {
+          "domain": "sensor",
+          "name": "Pressure"
+        }
+      ],
+      "vars": [
+        {
+          "name": "st_update_interval",
+          "default": "60s",
+          "required": false,
+          "secret": false,
+          "description": "How often to sample the sensor"
+        },
+        {
+          "name": "st_name_prefix",
+          "default": "",
+          "required": false,
+          "secret": false,
+          "description": "Prefix prepended to every entity name"
+        },
+        {
+          "name": "st_disabled_by_default",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Ship the entities disabled in HA"
+        },
+        {
+          "name": "st_internal",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Hide the entities from HA/web entirely"
+        },
+        {
+          "name": "st_state_class",
+          "default": "measurement",
+          "required": false,
+          "secret": false,
+          "description": "state_class for all readings; set \"\" to opt out of HA long-term statistics"
+        },
+        {
+          "name": "st_bme280_i2c_id",
+          "default": "st_i2c_bus",
+          "required": false,
+          "secret": false,
+          "description": "id of the I2C bus to use (from core/i2c.yaml)"
+        },
+        {
+          "name": "st_bme280_address",
+          "default": "0x76",
+          "required": false,
+          "secret": false,
+          "description": "I2C address (0x76 SDO->GND, 0x77 SDO->VCC)",
+          "choices": [
+            "0x76",
+            "0x77"
+          ]
+        }
+      ],
+      "notes": [
+        "Requires the shared I2C bus - include core/i2c.yaml. Sub-sensors keep the component default 16x oversampling; override via !extend for lower power.",
+        "A BMP280 (no humidity) is a different chip - use the bmp280_i2c platform instead. A \"BME280\" that reports 0% humidity is usually a mislabelled BMP280."
+      ],
+      "path": "templates/environment/bme280.yaml",
+      "body": "defaults:\n  st_update_interval: 60s\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n  st_state_class: measurement\n  st_bme280_i2c_id: st_i2c_bus\n  st_bme280_address: \"0x76\"\n\nsensor:\n  - platform: bme280_i2c\n    i2c_id: ${st_bme280_i2c_id}\n    address: ${st_bme280_address}\n    update_interval: ${st_update_interval}\n    temperature:\n      id: st_bme280_temperature\n      name: \"${st_name_prefix}Temperature\"\n      device_class: temperature\n      unit_of_measurement: \"°C\"\n      accuracy_decimals: 1\n      state_class: \"${st_state_class}\"\n      disabled_by_default: ${st_disabled_by_default}\n      internal: ${st_internal}\n    humidity:\n      id: st_bme280_humidity\n      name: \"${st_name_prefix}Humidity\"\n      device_class: humidity\n      unit_of_measurement: \"%\"\n      accuracy_decimals: 1\n      state_class: \"${st_state_class}\"\n      disabled_by_default: ${st_disabled_by_default}\n      internal: ${st_internal}\n    pressure:\n      id: st_bme280_pressure\n      name: \"${st_name_prefix}Pressure\"\n      device_class: pressure\n      unit_of_measurement: hPa\n      accuracy_decimals: 1\n      state_class: \"${st_state_class}\"\n      disabled_by_default: ${st_disabled_by_default}\n      internal: ${st_internal}\n"
+    },
+    {
+      "slug": "dht",
+      "title": "DHT Temperature & Humidity",
+      "category": "environment",
+      "description": "Reads temperature and humidity from a DHT11/DHT22/AM2302/RHT03 single-wire sensor. Exposes both readings as primary sensors.",
+      "platforms": [
+        "esp32",
+        "esp32s2",
+        "esp32s3",
+        "esp32c3",
+        "esp32c6"
+      ],
+      "requires": [],
+      "entities": [
+        {
+          "domain": "sensor",
+          "name": "Temperature"
+        },
+        {
+          "domain": "sensor",
+          "name": "Humidity"
+        }
+      ],
+      "vars": [
+        {
+          "name": "st_update_interval",
+          "default": "60s",
+          "required": false,
+          "secret": false,
+          "description": "How often to sample the sensor (min 2s for DHT22)"
+        },
+        {
+          "name": "st_name_prefix",
+          "default": "",
+          "required": false,
+          "secret": false,
+          "description": "Prefix prepended to every entity name"
+        },
+        {
+          "name": "st_disabled_by_default",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Ship the entities disabled in HA"
+        },
+        {
+          "name": "st_internal",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Hide the entities from HA/web entirely"
+        },
+        {
+          "name": "st_state_class",
+          "default": "measurement",
+          "required": false,
+          "secret": false,
+          "description": "state_class for both readings; set \"\" to opt out of HA long-term statistics"
+        },
+        {
+          "name": "st_dht_pin",
+          "default": "",
+          "required": true,
+          "secret": false,
+          "description": "GPIO connected to the sensor DATA line"
+        },
+        {
+          "name": "st_dht_model",
+          "default": "DHT22",
+          "required": false,
+          "secret": false,
+          "description": "Sensor variant",
+          "choices": [
+            "AUTO_DETECT",
+            "DHT11",
+            "DHT22",
+            "DHT22_TYPE2",
+            "AM2302",
+            "RHT03",
+            "SI7021",
+            "AM2120"
+          ]
+        }
+      ],
+      "notes": [
+        "DHT22/AM2302 need at least 2s between reads - do not set st_update_interval below 2s.",
+        "A 4.7kΩ-10kΩ pull-up between DATA and 3.3V is required. Bare-module boards with an onboard pull-up need pin: { number: X, pullup: false } via !extend st_dht_temperature's parent - or wire your own."
+      ],
+      "path": "templates/environment/dht.yaml",
+      "body": "defaults:\n  st_update_interval: 60s\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n  st_state_class: measurement\n  st_dht_model: DHT22\n\nsensor:\n  - platform: dht\n    pin: ${st_dht_pin}\n    # Explicit model is more reliable than AUTO_DETECT (which cannot detect\n    # the SI7021 and occasionally mis-IDs cheap clones).\n    model: ${st_dht_model}\n    update_interval: ${st_update_interval}\n    temperature:\n      id: st_dht_temperature\n      name: \"${st_name_prefix}Temperature\"\n      device_class: temperature\n      unit_of_measurement: \"°C\"\n      accuracy_decimals: 1\n      state_class: \"${st_state_class}\"\n      disabled_by_default: ${st_disabled_by_default}\n      internal: ${st_internal}\n    humidity:\n      id: st_dht_humidity\n      name: \"${st_name_prefix}Humidity\"\n      device_class: humidity\n      unit_of_measurement: \"%\"\n      accuracy_decimals: 1\n      state_class: \"${st_state_class}\"\n      disabled_by_default: ${st_disabled_by_default}\n      internal: ${st_internal}\n"
+    },
+    {
+      "slug": "ds18b20",
+      "title": "DS18B20 Temperature",
+      "category": "environment",
+      "description": "Reads a Dallas DS18B20 temperature sensor over a dedicated 1-Wire bus. Owns its one_wire: bus (the only template that uses it).",
+      "platforms": [
+        "esp32",
+        "esp32s2",
+        "esp32s3",
+        "esp32c3",
+        "esp32c6"
+      ],
+      "requires": [],
+      "entities": [
+        {
+          "domain": "sensor",
+          "name": "Temperature"
+        }
+      ],
+      "vars": [
+        {
+          "name": "st_update_interval",
+          "default": "60s",
+          "required": false,
+          "secret": false,
+          "description": "How often to read the sensor"
+        },
+        {
+          "name": "st_name_prefix",
+          "default": "",
+          "required": false,
+          "secret": false,
+          "description": "Prefix prepended to the entity name"
+        },
+        {
+          "name": "st_disabled_by_default",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Ship the entity disabled in HA"
+        },
+        {
+          "name": "st_internal",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Hide the entity from HA/web entirely"
+        },
+        {
+          "name": "st_state_class",
+          "default": "measurement",
+          "required": false,
+          "secret": false,
+          "description": "state_class for the reading; set \"\" to opt out of HA long-term statistics"
+        },
+        {
+          "name": "st_ds18b20_pin",
+          "default": "",
+          "required": true,
+          "secret": false,
+          "description": "GPIO connected to the 1-Wire DATA line"
+        },
+        {
+          "name": "st_ds18b20_resolution",
+          "default": "12",
+          "required": false,
+          "secret": false,
+          "description": "ADC resolution in bits (higher = slower conversion)",
+          "choices": [
+            "9",
+            "10",
+            "11",
+            "12"
+          ]
+        }
+      ],
+      "notes": [
+        "A 4.7kΩ pull-up between DATA and 3.3V is required.",
+        "This preset assumes ONE sensor on the bus (no address needed - it auto-selects the single device). For multiple DS18B20s on one bus, give each its own address via !extend st_ds18b20_temperature (address: 0x...) and add more dallas_temp sensors on the same st_ds18b20_one_wire bus. Run once with logs to read the discovered addresses."
+      ],
+      "path": "templates/environment/ds18b20.yaml",
+      "body": "defaults:\n  st_update_interval: 60s\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n  st_state_class: measurement\n  st_ds18b20_resolution: \"12\"\n\n# Dedicated 1-Wire bus - the modern replacement for the removed `dallas:` platform.\none_wire:\n  - platform: gpio\n    pin: ${st_ds18b20_pin}\n    id: st_ds18b20_one_wire\n\nsensor:\n  - platform: dallas_temp\n    one_wire_id: st_ds18b20_one_wire\n    id: st_ds18b20_temperature\n    name: \"${st_name_prefix}Temperature\"\n    device_class: temperature\n    unit_of_measurement: \"°C\"\n    accuracy_decimals: 1\n    resolution: ${st_ds18b20_resolution}\n    update_interval: ${st_update_interval}\n    state_class: \"${st_state_class}\"\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n"
+    },
+    {
+      "slug": "sht3x",
+      "title": "SHT3x Temperature & Humidity",
+      "category": "environment",
+      "description": "Reads temperature and humidity from a Sensirion SHT30/SHT31/SHT35 (SHT3x-D) over I2C. Shares the library I2C bus.",
+      "platforms": [
+        "esp32",
+        "esp32s2",
+        "esp32s3",
+        "esp32c3",
+        "esp32c6"
+      ],
+      "requires": [
+        "i2c"
+      ],
+      "entities": [
+        {
+          "domain": "sensor",
+          "name": "Temperature"
+        },
+        {
+          "domain": "sensor",
+          "name": "Humidity"
+        }
+      ],
+      "vars": [
+        {
+          "name": "st_update_interval",
+          "default": "60s",
+          "required": false,
+          "secret": false,
+          "description": "How often to sample the sensor"
+        },
+        {
+          "name": "st_name_prefix",
+          "default": "",
+          "required": false,
+          "secret": false,
+          "description": "Prefix prepended to every entity name"
+        },
+        {
+          "name": "st_disabled_by_default",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Ship the entities disabled in HA"
+        },
+        {
+          "name": "st_internal",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Hide the entities from HA/web entirely"
+        },
+        {
+          "name": "st_state_class",
+          "default": "measurement",
+          "required": false,
+          "secret": false,
+          "description": "state_class for both readings; set \"\" to opt out of HA long-term statistics"
+        },
+        {
+          "name": "st_sht3x_i2c_id",
+          "default": "st_i2c_bus",
+          "required": false,
+          "secret": false,
+          "description": "id of the I2C bus to use (from core/i2c.yaml)"
+        },
+        {
+          "name": "st_sht3x_address",
+          "default": "0x44",
+          "required": false,
+          "secret": false,
+          "description": "I2C address (0x44 ADDR->GND, 0x45 ADDR->VCC; SHT85 is 0x44 only)",
+          "choices": [
+            "0x44",
+            "0x45"
+          ]
+        }
+      ],
+      "notes": [
+        "Requires the shared I2C bus - include core/i2c.yaml. The onboard heater is off by default; enable it via !extend (heater_enabled: true) only to clear condensation, as it skews readings."
+      ],
+      "path": "templates/environment/sht3x.yaml",
+      "body": "defaults:\n  st_update_interval: 60s\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n  st_state_class: measurement\n  st_sht3x_i2c_id: st_i2c_bus\n  st_sht3x_address: \"0x44\"\n\nsensor:\n  - platform: sht3xd\n    i2c_id: ${st_sht3x_i2c_id}\n    address: ${st_sht3x_address}\n    update_interval: ${st_update_interval}\n    temperature:\n      id: st_sht3x_temperature\n      name: \"${st_name_prefix}Temperature\"\n      device_class: temperature\n      unit_of_measurement: \"°C\"\n      accuracy_decimals: 1\n      state_class: \"${st_state_class}\"\n      disabled_by_default: ${st_disabled_by_default}\n      internal: ${st_internal}\n    humidity:\n      id: st_sht3x_humidity\n      name: \"${st_name_prefix}Humidity\"\n      device_class: humidity\n      unit_of_measurement: \"%\"\n      accuracy_decimals: 1\n      state_class: \"${st_state_class}\"\n      disabled_by_default: ${st_disabled_by_default}\n      internal: ${st_internal}\n"
     },
     {
       "slug": "deep_sleep_control",
@@ -2812,6 +4044,799 @@
       ],
       "path": "templates/network/wifi_signal.yaml",
       "body": "defaults:\n  st_update_interval: 60s\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n  st_state_class: measurement\n\nsensor:\n  - platform: wifi_signal\n    id: st_wifi_signal_dbm\n    name: \"${st_name_prefix}WiFi Signal dBm\"\n    device_class: signal_strength\n    unit_of_measurement: dBm\n    entity_category: diagnostic\n    state_class: \"${st_state_class}\"\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n    update_interval: ${st_update_interval}\n\n  # Derived percentage. copy inherits device_class signal_strength from the\n  # source, so clear it explicitly - a percentage is not a dBm reading.\n  - platform: copy\n    source_id: st_wifi_signal_dbm\n    id: st_wifi_signal_percent\n    name: \"${st_name_prefix}WiFi Signal %\"\n    unit_of_measurement: \"%\"\n    icon: mdi:wifi\n    device_class: \"\"\n    entity_category: diagnostic\n    state_class: \"${st_state_class}\"\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n    filters:\n      - lambda: return min(max(2 * (x + 100.0), 0.0), 100.0);\n"
+    },
+    {
+      "slug": "camera_ai_thinker",
+      "title": "ESP32-CAM Camera (AI-Thinker)",
+      "category": "peripherals",
+      "description": "esp32_camera preset with the AI-Thinker ESP32-CAM pinout hardcoded. Exposes the onboard OV2640 camera in Home Assistant. Pins are board-specific to the classic AI-Thinker module.",
+      "platforms": [
+        "esp32"
+      ],
+      "requires": [],
+      "entities": [
+        {
+          "domain": "camera",
+          "name": "Camera"
+        }
+      ],
+      "vars": [
+        {
+          "name": "st_name_prefix",
+          "default": "",
+          "required": false,
+          "secret": false,
+          "description": "Prefix prepended to the entity name"
+        },
+        {
+          "name": "st_disabled_by_default",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Ship the entity disabled in HA"
+        },
+        {
+          "name": "st_internal",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Hide the entity from HA/web entirely"
+        },
+        {
+          "name": "st_camera_name",
+          "default": "Camera",
+          "required": false,
+          "secret": false,
+          "description": "Camera entity name (after st_name_prefix)"
+        },
+        {
+          "name": "st_camera_resolution",
+          "default": "800x600",
+          "required": false,
+          "secret": false,
+          "description": "Capture resolution (higher = more RAM/slower)",
+          "choices": [
+            "320x240",
+            "640x480",
+            "800x600",
+            "1024x768",
+            "1280x1024",
+            "1600x1200"
+          ]
+        },
+        {
+          "name": "st_camera_jpeg_quality",
+          "default": "10",
+          "required": false,
+          "secret": false,
+          "description": "JPEG quality, 6 (best) to 63 (worst); lower is higher quality and larger frames"
+        },
+        {
+          "name": "st_camera_vertical_flip",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Flip the image vertically"
+        },
+        {
+          "name": "st_camera_horizontal_mirror",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Mirror the image horizontally"
+        }
+      ],
+      "notes": [
+        "THIS IS THE AI-THINKER PIN MAP ONLY - it is copied from the ESPHome esp32_camera AI-Thinker example and is specific to the classic AI-Thinker ESP32-CAM. Other camera boards (M5, TTGO, ESP32-S3-EYE) use different pins; override the whole pin map via !extend.",
+        "esp32 (classic) ONLY - the AI-Thinker board is a WROOM/WROVER classic ESP32. The pin map (and this @platforms line) do not apply to S2/S3/C3/C6 boards.",
+        "The camera uses substantial RAM for frame buffers - PSRAM is strongly recommended (the AI-Thinker uses a WROVER module with PSRAM). Add a \"psram:\" block; without PSRAM you are limited to small resolutions and low quality.",
+        "This template hardcodes its own i2c bus (SCCB) on GPIO26/27 with scan:false - it is the camera's dedicated control bus, not the shared core/i2c.yaml bus.",
+        "On the AI-Thinker board GPIO0 (external clock) is also the boot/flash-mode strap and GPIO16 is wired to PSRAM - do not repurpose them."
+      ],
+      "path": "templates/peripherals/camera_ai_thinker.yaml",
+      "body": "defaults:\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n  st_camera_name: \"Camera\"\n  st_camera_resolution: 800x600\n  st_camera_jpeg_quality: \"10\"\n  st_camera_vertical_flip: \"false\"\n  st_camera_horizontal_mirror: \"false\"\n\n# Dedicated SCCB (I2C) control bus for the OV2640 - AI-Thinker fixed pins.\ni2c:\n  - id: st_camera_i2c\n    sda: GPIO26\n    scl: GPIO27\n    scan: false\n\nesp32_camera:\n  id: st_camera\n  name: \"${st_name_prefix}${st_camera_name}\"\n  disabled_by_default: ${st_disabled_by_default}\n  internal: ${st_internal}\n  # --- AI-Thinker ESP32-CAM fixed pin map (from the esp32_camera docs) ---\n  external_clock:\n    pin: GPIO0\n    frequency: 20MHz\n  i2c_id: st_camera_i2c\n  data_pins: [GPIO5, GPIO18, GPIO19, GPIO21, GPIO36, GPIO39, GPIO34, GPIO35]\n  vsync_pin: GPIO25\n  href_pin: GPIO23\n  pixel_clock_pin: GPIO22\n  power_down_pin: GPIO32\n  # --- image settings (user-tunable) ---\n  resolution: ${st_camera_resolution}\n  jpeg_quality: ${st_camera_jpeg_quality}\n  vertical_flip: ${st_camera_vertical_flip}\n  horizontal_mirror: ${st_camera_horizontal_mirror}\n"
+    },
+    {
+      "slug": "fan_gpio",
+      "title": "On/Off Fan (GPIO)",
+      "category": "peripherals",
+      "description": "Simple on/off fan switched through a relay or MOSFET on a GPIO output. No speed control. Multi-instance via id/name vars.",
+      "platforms": [
+        "esp32",
+        "esp32s2",
+        "esp32s3",
+        "esp32c3",
+        "esp32c6"
+      ],
+      "requires": [],
+      "entities": [
+        {
+          "domain": "fan",
+          "name": "Fan"
+        }
+      ],
+      "vars": [
+        {
+          "name": "st_name_prefix",
+          "default": "",
+          "required": false,
+          "secret": false,
+          "description": "Prefix prepended to the entity name"
+        },
+        {
+          "name": "st_disabled_by_default",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Ship the entity disabled in HA"
+        },
+        {
+          "name": "st_internal",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Hide the entity from HA/web entirely"
+        },
+        {
+          "name": "st_fan_gpio_id",
+          "default": "st_fan_gpio",
+          "required": false,
+          "secret": false,
+          "description": "Entity id - MUST be overridden on every extra include (see notes)"
+        },
+        {
+          "name": "st_fan_gpio_name",
+          "default": "Fan",
+          "required": false,
+          "secret": false,
+          "description": "Entity name (after st_name_prefix)"
+        },
+        {
+          "name": "st_fan_gpio_pin",
+          "default": "",
+          "required": true,
+          "secret": false,
+          "description": "GPIO driving the relay/MOSFET control input"
+        }
+      ],
+      "notes": [
+        "MULTI-INSTANCE - include more than once for several fans. Each extra include MUST override st_fan_gpio_id, st_fan_gpio_name AND st_fan_gpio_pin; duplicate ids or shared pins are errors. The GPIO output id is derived as ${st_fan_gpio_id}_out.",
+        "Size the relay/MOSFET for the fan's stall current, not its running current. A DC fan is an inductive load - add a flyback diode across the fan (or use a relay module with one built in) so the back-EMF spike does not destroy the switching device. For a bare MOSFET, use a logic-level part switching the fan's ground."
+      ],
+      "path": "templates/peripherals/fan_gpio.yaml",
+      "body": "defaults:\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n  st_fan_gpio_id: st_fan_gpio\n  st_fan_gpio_name: \"Fan\"\n\noutput:\n  - platform: gpio\n    # id concatenates the fan-id var textually, so it stays unique per include.\n    id: ${st_fan_gpio_id}_out\n    pin: ${st_fan_gpio_pin}\n\nfan:\n  - platform: binary\n    id: ${st_fan_gpio_id}\n    name: \"${st_name_prefix}${st_fan_gpio_name}\"\n    output: ${st_fan_gpio_id}_out\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n"
+    },
+    {
+      "slug": "fan_pwm",
+      "title": "PWM Fan (LEDC)",
+      "category": "peripherals",
+      "description": "Variable-speed fan driven by an ESP32 LEDC PWM output - a 4-wire PC fan (PWM on the control wire) or a MOSFET-driven 2-wire DC fan. Multi-instance via id/name vars.",
+      "platforms": [
+        "esp32",
+        "esp32s2",
+        "esp32s3",
+        "esp32c3",
+        "esp32c6"
+      ],
+      "requires": [],
+      "entities": [
+        {
+          "domain": "fan",
+          "name": "Fan"
+        }
+      ],
+      "vars": [
+        {
+          "name": "st_name_prefix",
+          "default": "",
+          "required": false,
+          "secret": false,
+          "description": "Prefix prepended to the entity name"
+        },
+        {
+          "name": "st_disabled_by_default",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Ship the entity disabled in HA"
+        },
+        {
+          "name": "st_internal",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Hide the entity from HA/web entirely"
+        },
+        {
+          "name": "st_fan_id",
+          "default": "st_fan_pwm",
+          "required": false,
+          "secret": false,
+          "description": "Entity id - MUST be overridden on every extra include (see notes)"
+        },
+        {
+          "name": "st_fan_name",
+          "default": "Fan",
+          "required": false,
+          "secret": false,
+          "description": "Entity name (after st_name_prefix)"
+        },
+        {
+          "name": "st_fan_pin",
+          "default": "",
+          "required": true,
+          "secret": false,
+          "description": "GPIO driving the PWM control signal (4-wire fan blue wire, or a MOSFET gate)"
+        },
+        {
+          "name": "st_fan_frequency",
+          "default": "25000Hz",
+          "required": false,
+          "secret": false,
+          "description": "LEDC PWM frequency - 25 kHz is the Intel 4-wire PC-fan standard (keeps PWM out of the audible range)"
+        },
+        {
+          "name": "st_fan_speed_count",
+          "default": "100",
+          "required": false,
+          "secret": false,
+          "description": "Number of discrete speed steps HA/web exposes"
+        }
+      ],
+      "notes": [
+        "MULTI-INSTANCE - include more than once for several fans. Each extra include MUST override st_fan_id, st_fan_name AND st_fan_pin; duplicate ids or shared pins are errors. The LEDC output id is derived as ${st_fan_id}_out, so overriding the fan id keeps the output id unique too.",
+        "4-WIRE fans take the 25 kHz PWM on the control wire directly - the fan is powered from 12 V separately and only the PWM/tach signals touch the ESP. 2-WIRE / 3-WIRE DC fans have no PWM input: switch their power through a logic-level MOSFET on the control pin instead (they will whine at 25 kHz - drop st_fan_frequency to a lower value for those).",
+        "TACHOMETER - a 4-wire fan's tach (green) wire gives RPM. Not shipped (needs the fan's pulses-per-revolution), add via !extend:"
+      ],
+      "path": "templates/peripherals/fan_pwm.yaml",
+      "body": "defaults:\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n  st_fan_id: st_fan_pwm\n  st_fan_name: \"Fan\"\n  st_fan_frequency: 25000Hz\n  st_fan_speed_count: \"100\"\n\noutput:\n  - platform: ledc\n    # id concatenates the fan-id var textually, so it stays unique per include.\n    id: ${st_fan_id}_out\n    pin: ${st_fan_pin}\n    frequency: ${st_fan_frequency}\n\nfan:\n  - platform: speed\n    id: ${st_fan_id}\n    name: \"${st_name_prefix}${st_fan_name}\"\n    output: ${st_fan_id}_out\n    speed_count: ${st_fan_speed_count}\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n"
+    },
+    {
+      "slug": "gps",
+      "title": "GPS Module (NEO-6M)",
+      "category": "peripherals",
+      "description": "NMEA GPS module (u-blox NEO-6M class) on a dedicated UART. Exposes latitude, longitude, altitude, speed, course and satellite-count sensors, plus a GPS time source.",
+      "platforms": [
+        "esp32",
+        "esp32s2",
+        "esp32s3",
+        "esp32c3",
+        "esp32c6"
+      ],
+      "requires": [],
+      "entities": [
+        {
+          "domain": "sensor",
+          "name": "GPS Latitude"
+        },
+        {
+          "domain": "sensor",
+          "name": "GPS Longitude"
+        },
+        {
+          "domain": "sensor",
+          "name": "GPS Altitude"
+        },
+        {
+          "domain": "sensor",
+          "name": "GPS Speed"
+        },
+        {
+          "domain": "sensor",
+          "name": "GPS Course"
+        },
+        {
+          "domain": "sensor",
+          "name": "GPS Satellites"
+        },
+        {
+          "domain": "sensor",
+          "name": "GPS HDOP"
+        }
+      ],
+      "vars": [
+        {
+          "name": "st_update_interval",
+          "default": "60s",
+          "required": false,
+          "secret": false,
+          "description": "How often the GPS sensors publish"
+        },
+        {
+          "name": "st_name_prefix",
+          "default": "",
+          "required": false,
+          "secret": false,
+          "description": "Prefix prepended to every entity name"
+        },
+        {
+          "name": "st_disabled_by_default",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Ship the entities disabled in HA"
+        },
+        {
+          "name": "st_internal",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Hide the entities from HA/web entirely"
+        },
+        {
+          "name": "st_state_class",
+          "default": "measurement",
+          "required": false,
+          "secret": false,
+          "description": "state_class for the numeric sensors (set \"\" to opt out of HA long-term statistics)"
+        },
+        {
+          "name": "st_gps_rx_pin",
+          "default": "",
+          "required": true,
+          "secret": false,
+          "description": "GPIO wired to the GPS module's TX pin (the ESP RX). This is the only pin GPS needs."
+        }
+      ],
+      "notes": [
+        "The GPS module only TRANSMITS NMEA, so the UART needs just an rx_pin (module TX -> ESP RX) at 9600 baud. If you need to send config commands (e.g. change baud/rate), add a tx_pin to st_gps_uart via !extend.",
+        "ESP32 has 3 hardware UARTs (C3/C6: 2, one often taken by the logger). This template claims one for the GPS; keep it off the logger's UART pins.",
+        "This ships a \"time: - platform: gps\" source (id st_time_gps). It does NOT collide with core/time_sntp.yaml or time_homeassistant.yaml (different platforms) but they are separate time sources - avoid including several unless you intend it. GPS time only becomes valid once the module has a fix.",
+        "Latitude/longitude report NaN and satellites/hdop stay flat until the module gets a fix - a cold start outdoors can take minutes."
+      ],
+      "path": "templates/peripherals/gps.yaml",
+      "body": "defaults:\n  st_update_interval: 60s\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n  st_state_class: measurement\n\n# Dedicated UART - GPS transmits NMEA to the ESP, so only rx_pin is required.\nuart:\n  - id: st_gps_uart\n    rx_pin: ${st_gps_rx_pin}\n    baud_rate: 9600\n\ngps:\n  id: st_gps\n  uart_id: st_gps_uart\n  update_interval: ${st_update_interval}\n  latitude:\n    id: st_gps_latitude\n    name: \"${st_name_prefix}GPS Latitude\"\n    unit_of_measurement: \"°\"\n    accuracy_decimals: 6\n    state_class: \"${st_state_class}\"\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n    icon: mdi:latitude\n  longitude:\n    id: st_gps_longitude\n    name: \"${st_name_prefix}GPS Longitude\"\n    unit_of_measurement: \"°\"\n    accuracy_decimals: 6\n    state_class: \"${st_state_class}\"\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n    icon: mdi:longitude\n  altitude:\n    id: st_gps_altitude\n    name: \"${st_name_prefix}GPS Altitude\"\n    unit_of_measurement: \"m\"\n    accuracy_decimals: 1\n    state_class: \"${st_state_class}\"\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n    icon: mdi:image-filter-hdr\n  speed:\n    id: st_gps_speed\n    name: \"${st_name_prefix}GPS Speed\"\n    unit_of_measurement: \"km/h\"\n    accuracy_decimals: 1\n    state_class: \"${st_state_class}\"\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n    icon: mdi:speedometer\n  course:\n    id: st_gps_course\n    name: \"${st_name_prefix}GPS Course\"\n    unit_of_measurement: \"°\"\n    accuracy_decimals: 1\n    state_class: \"${st_state_class}\"\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n    icon: mdi:compass\n  satellites:\n    id: st_gps_satellites\n    name: \"${st_name_prefix}GPS Satellites\"\n    accuracy_decimals: 0\n    state_class: \"${st_state_class}\"\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n    icon: mdi:satellite-variant\n  hdop:\n    id: st_gps_hdop\n    name: \"${st_name_prefix}GPS HDOP\"\n    accuracy_decimals: 2\n    state_class: \"${st_state_class}\"\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n    icon: mdi:crosshairs-gps\n\n# Separate time platform - valid only after a fix. Coexists with SNTP/HA time.\ntime:\n  - platform: gps\n    id: st_time_gps\n"
+    },
+    {
+      "slug": "ld2410",
+      "title": "LD2410 mmWave Presence",
+      "category": "presence",
+      "description": "HiLink LD2410 24GHz mmWave radar presence sensor over UART. Exposes occupancy plus moving/still target flags and distances. Owns its own uart: bus.",
+      "platforms": [
+        "esp32",
+        "esp32s2",
+        "esp32s3",
+        "esp32c3",
+        "esp32c6"
+      ],
+      "requires": [],
+      "entities": [
+        {
+          "domain": "binary_sensor",
+          "name": "Presence"
+        },
+        {
+          "domain": "binary_sensor",
+          "name": "Moving Target"
+        },
+        {
+          "domain": "binary_sensor",
+          "name": "Still Target"
+        },
+        {
+          "domain": "sensor",
+          "name": "Moving Distance"
+        },
+        {
+          "domain": "sensor",
+          "name": "Still Distance"
+        }
+      ],
+      "vars": [
+        {
+          "name": "st_name_prefix",
+          "default": "",
+          "required": false,
+          "secret": false,
+          "description": "Prefix prepended to every entity name"
+        },
+        {
+          "name": "st_disabled_by_default",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Ship the entities disabled in HA"
+        },
+        {
+          "name": "st_internal",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Hide the entities from HA/web entirely"
+        },
+        {
+          "name": "st_state_class",
+          "default": "measurement",
+          "required": false,
+          "secret": false,
+          "description": "state_class for the distance sensors; set \"\" to opt out of HA long-term statistics"
+        },
+        {
+          "name": "st_ld2410_uart_tx_pin",
+          "default": "",
+          "required": true,
+          "secret": false,
+          "description": "GPIO wired to the sensor RX pin (ESP TX)"
+        },
+        {
+          "name": "st_ld2410_uart_rx_pin",
+          "default": "",
+          "required": true,
+          "secret": false,
+          "description": "GPIO wired to the sensor TX pin (ESP RX)"
+        }
+      ],
+      "notes": [
+        "The LD2410 uses a fixed 256000 baud UART (parity NONE, 1 stop bit). Use hardware UART pins. ESP32 has 3 hardware UARTs, S2/S3 have 2-3, C3/C6 have 2 - one is usually taken by the logger (UART0), so keep the logger on its default pins or drop its baud/hardware_uart if you run out.",
+        "This preset exposes only the core presence readings. The full tuning surface - per-gate move/still sensitivity, detection timeout, bluetooth, engineering mode, calibration buttons - is available by adding the ld2410 number:/select:/switch:/button: platforms with ld2410_id: st_ld2410, or by !extend st_ld2410."
+      ],
+      "path": "templates/presence/ld2410.yaml",
+      "body": "defaults:\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n  st_state_class: measurement\n\n# Dedicated UART for this radar (256000 baud is the module's fixed rate).\nuart:\n  - id: st_ld2410_uart\n    tx_pin: ${st_ld2410_uart_tx_pin}\n    rx_pin: ${st_ld2410_uart_rx_pin}\n    baud_rate: 256000\n    parity: NONE\n    stop_bits: 1\n\nld2410:\n  id: st_ld2410\n  uart_id: st_ld2410_uart\n\nbinary_sensor:\n  - platform: ld2410\n    ld2410_id: st_ld2410\n    has_target:\n      id: st_ld2410_presence\n      name: \"${st_name_prefix}Presence\"\n      device_class: occupancy\n      disabled_by_default: ${st_disabled_by_default}\n      internal: ${st_internal}\n    has_moving_target:\n      id: st_ld2410_moving_target\n      name: \"${st_name_prefix}Moving Target\"\n      device_class: motion\n      disabled_by_default: ${st_disabled_by_default}\n      internal: ${st_internal}\n    has_still_target:\n      id: st_ld2410_still_target\n      name: \"${st_name_prefix}Still Target\"\n      device_class: occupancy\n      disabled_by_default: ${st_disabled_by_default}\n      internal: ${st_internal}\n\nsensor:\n  - platform: ld2410\n    ld2410_id: st_ld2410\n    moving_distance:\n      id: st_ld2410_moving_distance\n      name: \"${st_name_prefix}Moving Distance\"\n      device_class: distance\n      unit_of_measurement: cm\n      accuracy_decimals: 0\n      state_class: \"${st_state_class}\"\n      disabled_by_default: ${st_disabled_by_default}\n      internal: ${st_internal}\n    still_distance:\n      id: st_ld2410_still_distance\n      name: \"${st_name_prefix}Still Distance\"\n      device_class: distance\n      unit_of_measurement: cm\n      accuracy_decimals: 0\n      state_class: \"${st_state_class}\"\n      disabled_by_default: ${st_disabled_by_default}\n      internal: ${st_internal}\n"
+    },
+    {
+      "slug": "ld2450",
+      "title": "LD2450 mmWave Tracking",
+      "category": "presence",
+      "description": "HiLink LD2450 24GHz mmWave radar with multi-target tracking over UART. Exposes occupancy plus the active target count. Owns its own uart: bus.",
+      "platforms": [
+        "esp32",
+        "esp32s2",
+        "esp32s3",
+        "esp32c3",
+        "esp32c6"
+      ],
+      "requires": [],
+      "entities": [
+        {
+          "domain": "binary_sensor",
+          "name": "Presence"
+        },
+        {
+          "domain": "sensor",
+          "name": "Target Count"
+        }
+      ],
+      "vars": [
+        {
+          "name": "st_name_prefix",
+          "default": "",
+          "required": false,
+          "secret": false,
+          "description": "Prefix prepended to every entity name"
+        },
+        {
+          "name": "st_disabled_by_default",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Ship the entities disabled in HA"
+        },
+        {
+          "name": "st_internal",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Hide the entities from HA/web entirely"
+        },
+        {
+          "name": "st_state_class",
+          "default": "measurement",
+          "required": false,
+          "secret": false,
+          "description": "state_class for the target-count sensor; set \"\" to opt out of HA long-term statistics"
+        },
+        {
+          "name": "st_ld2450_uart_tx_pin",
+          "default": "",
+          "required": true,
+          "secret": false,
+          "description": "GPIO wired to the sensor RX pin (ESP TX)"
+        },
+        {
+          "name": "st_ld2450_uart_rx_pin",
+          "default": "",
+          "required": true,
+          "secret": false,
+          "description": "GPIO wired to the sensor TX pin (ESP RX)"
+        }
+      ],
+      "notes": [
+        "The LD2450 uses a fixed 256000 baud UART (parity NONE, 1 stop bit); firmware V2.02.23090617 or later is required. Use hardware UART pins. ESP32 has 3 hardware UARTs, C3/C6 have 2 - one is usually taken by the logger (UART0).",
+        "The LD2450 tracks up to 3 targets and supports zones. This preset keeps it light (presence + count). Add per-target position via the ld2450 sensor platform (target_1 x/y/speed/distance/angle, target_2..3), or zone counts, with ld2450_id: st_ld2450 - or !extend st_ld2450 for install/multi-target/tracking-mode config."
+      ],
+      "path": "templates/presence/ld2450.yaml",
+      "body": "defaults:\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n  st_state_class: measurement\n\n# Dedicated UART for this radar (256000 baud is the module's fixed rate).\nuart:\n  - id: st_ld2450_uart\n    tx_pin: ${st_ld2450_uart_tx_pin}\n    rx_pin: ${st_ld2450_uart_rx_pin}\n    baud_rate: 256000\n    parity: NONE\n    stop_bits: 1\n\nld2450:\n  id: st_ld2450\n  uart_id: st_ld2450_uart\n\nbinary_sensor:\n  - platform: ld2450\n    ld2450_id: st_ld2450\n    has_target:\n      id: st_ld2450_presence\n      name: \"${st_name_prefix}Presence\"\n      device_class: occupancy\n      disabled_by_default: ${st_disabled_by_default}\n      internal: ${st_internal}\n\nsensor:\n  - platform: ld2450\n    ld2450_id: st_ld2450\n    target_count:\n      id: st_ld2450_target_count\n      name: \"${st_name_prefix}Target Count\"\n      icon: mdi:account-group\n      accuracy_decimals: 0\n      state_class: \"${st_state_class}\"\n      disabled_by_default: ${st_disabled_by_default}\n      internal: ${st_internal}\n"
+    },
+    {
+      "slug": "ir_receiver",
+      "title": "IR Receiver (TSOP)",
+      "category": "remote",
+      "description": "Infrared remote receiver hub for a TSOP-class demodulating IR sensor. Decodes received remote codes and prints them to the log so you can copy them into an ir_transmitter template.",
+      "platforms": [
+        "esp32",
+        "esp32s2",
+        "esp32s3",
+        "esp32c3",
+        "esp32c6"
+      ],
+      "requires": [],
+      "entities": [],
+      "vars": [
+        {
+          "name": "st_ir_rx_pin",
+          "default": "",
+          "required": true,
+          "secret": false,
+          "description": "GPIO wired to the TSOP data/OUT pin"
+        },
+        {
+          "name": "st_ir_dump",
+          "default": "all",
+          "required": false,
+          "secret": false,
+          "description": "Which decoded protocol(s) to print to the log; \"all\" dumps every known protocol",
+          "choices": [
+            "all",
+            "nec",
+            "sony",
+            "rc5",
+            "rc6",
+            "samsung",
+            "samsung36",
+            "lg",
+            "panasonic",
+            "jvc",
+            "pronto",
+            "coolix",
+            "midea",
+            "rc_switch",
+            "raw"
+          ]
+        }
+      ],
+      "notes": [
+        "TSOP-class receivers (TSOP38238 etc.) have an open-collector output that idles HIGH and pulls LOW on a carrier burst, so the pin is configured inverted:true with an internal pull-up. If your module has its own pull-up you can drop the pullup via !extend.",
+        "READ CODES FROM THE LOG - point a remote at the receiver and the decoded code prints at INFO level, e.g. \"Received NEC: address=0x1234, command=0x0078\". Copy those values into ir_transmitter.yaml (st_ir_test_address / st_ir_test_command) to replay the button.",
+        "dump also accepts a LIST - to dump several specific protocols instead of one, override via !extend: \"remote_receiver: - id: !extend st_ir_receiver / dump: [nec, sony, rc5]\".",
+        "ADD A BUTTON BINARY_SENSOR via !extend (not shipped, codes are device-specific). Example - a \"Power\" button on a NEC remote:"
+      ],
+      "path": "templates/remote/ir_receiver.yaml",
+      "body": "defaults:\n  st_ir_dump: all\n\nremote_receiver:\n  id: st_ir_receiver\n  pin:\n    number: ${st_ir_rx_pin}\n    # TSOP output is active-low and idles high -> invert so bursts read as marks.\n    inverted: true\n    mode:\n      input: true\n      pullup: true\n  dump: ${st_ir_dump}\n"
+    },
+    {
+      "slug": "ir_transmitter",
+      "title": "IR Transmitter (LED)",
+      "category": "remote",
+      "description": "Infrared transmitter hub driving an IR LED, plus a demo template button that sends a sample NEC code. Use ir_receiver to learn codes, then replay them from here.",
+      "platforms": [
+        "esp32",
+        "esp32s2",
+        "esp32s3",
+        "esp32c3",
+        "esp32c6"
+      ],
+      "requires": [],
+      "entities": [
+        {
+          "domain": "button",
+          "name": "IR Test"
+        }
+      ],
+      "vars": [
+        {
+          "name": "st_name_prefix",
+          "default": "",
+          "required": false,
+          "secret": false,
+          "description": "Prefix prepended to the entity name"
+        },
+        {
+          "name": "st_disabled_by_default",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Ship the entity disabled in HA"
+        },
+        {
+          "name": "st_internal",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Hide the entity from HA/web entirely"
+        },
+        {
+          "name": "st_ir_tx_pin",
+          "default": "",
+          "required": true,
+          "secret": false,
+          "description": "GPIO driving the IR LED (via a transistor for range)"
+        },
+        {
+          "name": "st_ir_tx_id",
+          "default": "st_ir_tx",
+          "required": false,
+          "secret": false,
+          "description": "Base id for the demo button (button id is ${st_ir_tx_id}_test)"
+        },
+        {
+          "name": "st_ir_tx_name",
+          "default": "IR Test",
+          "required": false,
+          "secret": false,
+          "description": "Name of the demo button (after st_name_prefix)"
+        },
+        {
+          "name": "st_ir_test_address",
+          "default": "0x1234",
+          "required": false,
+          "secret": false,
+          "description": "16-bit NEC address the demo button transmits"
+        },
+        {
+          "name": "st_ir_test_command",
+          "default": "0x78",
+          "required": false,
+          "secret": false,
+          "description": "16-bit NEC command the demo button transmits"
+        }
+      ],
+      "notes": [
+        "carrier_duty_percent is 50% - the documented value for IR LEDs (the ~38 kHz carrier is on half the time). RF transmitters use 100%; see rf_transmitter.yaml.",
+        "The demo button sends a NEC frame via remote_transmitter.transmit_nec. Learn your real codes with ir_receiver.yaml (they print to the log), then set st_ir_test_address / st_ir_test_command, or add more buttons via !extend using transmit_nec / transmit_sony / transmit_raw / transmit_pronto.",
+        "An ESP32 GPIO sources only ~20 mA; for usable range drive the IR LED through a transistor/MOSFET rather than directly off the pin."
+      ],
+      "path": "templates/remote/ir_transmitter.yaml",
+      "body": "defaults:\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n  st_ir_tx_id: st_ir_tx\n  st_ir_tx_name: \"IR Test\"\n  st_ir_test_address: \"0x1234\"\n  st_ir_test_command: \"0x78\"\n\nremote_transmitter:\n  id: st_ir_transmitter\n  pin: ${st_ir_tx_pin}\n  # 50% duty is the IR standard (carrier is modulated on/off around ~38 kHz).\n  carrier_duty_percent: 50%\n  # Explicit: the default flipped to non-blocking in 2025.11 and warns when unset.\n  non_blocking: true\n\nbutton:\n  - platform: template\n    id: ${st_ir_tx_id}_test\n    name: \"${st_name_prefix}${st_ir_tx_name}\"\n    entity_category: config\n    icon: mdi:remote\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n    on_press:\n      - remote_transmitter.transmit_nec:\n          address: ${st_ir_test_address}\n          command: ${st_ir_test_command}\n"
+    },
+    {
+      "slug": "rf_receiver",
+      "title": "433 MHz RF Receiver (RC Switch)",
+      "category": "remote",
+      "description": "433 MHz RF receiver hub (RXB6 / superheterodyne class) that decodes RC Switch codes from cheap wall plugs and remotes and prints them to the log. Filter/idle/tolerance are pre-tuned for noisy 433 MHz receivers.",
+      "platforms": [
+        "esp32",
+        "esp32s2",
+        "esp32s3",
+        "esp32c3",
+        "esp32c6"
+      ],
+      "requires": [],
+      "entities": [],
+      "vars": [
+        {
+          "name": "st_rf_rx_pin",
+          "default": "",
+          "required": true,
+          "secret": false,
+          "description": "GPIO wired to the receiver DATA pin"
+        },
+        {
+          "name": "st_rf_dump",
+          "default": "rc_switch",
+          "required": false,
+          "secret": false,
+          "description": "Which decoded protocol(s) to print to the log",
+          "choices": [
+            "rc_switch",
+            "raw",
+            "all"
+          ]
+        },
+        {
+          "name": "st_rf_tolerance",
+          "default": "60%",
+          "required": false,
+          "secret": false,
+          "description": "Timing tolerance - 60% is the doc-recommended value for noisy 433 MHz receivers"
+        },
+        {
+          "name": "st_rf_filter",
+          "default": "4us",
+          "required": false,
+          "secret": false,
+          "description": "Ignore pulses shorter than this (de-noises the cheap AGC front-end)"
+        },
+        {
+          "name": "st_rf_idle",
+          "default": "4ms",
+          "required": false,
+          "secret": false,
+          "description": "Gap that marks the end of a transmission"
+        }
+      ],
+      "notes": [
+        "The filter 4us / idle 4ms / tolerance 60% values are the ESPHome-documented rc_switch tuning for noisy 433 MHz receivers; leave them unless you have a clean signal.",
+        "READ CODES FROM THE LOG - press a 433 MHz remote near the receiver and the decoded code prints at INFO, e.g. \"Received RCSwitch Raw: protocol=1 data=0x151151\". Copy the binary code and protocol into rf_transmitter.yaml to replay it.",
+        "ADD A REMOTE BUTTON via !extend (not shipped, codes are device-specific). Example:",
+        "Cheap 433 MHz receivers are noisy; a proper antenna (17.3 cm wire) and a superheterodyne module (RXB6) decode far more reliably than the tiny green boards."
+      ],
+      "path": "templates/remote/rf_receiver.yaml",
+      "body": "defaults:\n  st_rf_dump: rc_switch\n  st_rf_tolerance: 60%\n  st_rf_filter: 4us\n  st_rf_idle: 4ms\n\nremote_receiver:\n  id: st_rf_receiver\n  pin:\n    number: ${st_rf_rx_pin}\n    mode:\n      input: true\n  dump: ${st_rf_dump}\n  # Pre-tuned for noisy 433 MHz superheterodyne receivers (ESPHome RF Bridge example values).\n  tolerance: ${st_rf_tolerance}\n  filter: ${st_rf_filter}\n  idle: ${st_rf_idle}\n"
+    },
+    {
+      "slug": "rf_transmitter",
+      "title": "433 MHz RF Transmitter (RC Switch)",
+      "category": "remote",
+      "description": "433 MHz RF transmitter hub (FS1000A / ASK class) plus a demo template button that sends a sample RC Switch code. Learn codes with rf_receiver, then replay them from here.",
+      "platforms": [
+        "esp32",
+        "esp32s2",
+        "esp32s3",
+        "esp32c3",
+        "esp32c6"
+      ],
+      "requires": [],
+      "entities": [
+        {
+          "domain": "button",
+          "name": "RF Test"
+        }
+      ],
+      "vars": [
+        {
+          "name": "st_name_prefix",
+          "default": "",
+          "required": false,
+          "secret": false,
+          "description": "Prefix prepended to the entity name"
+        },
+        {
+          "name": "st_disabled_by_default",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Ship the entity disabled in HA"
+        },
+        {
+          "name": "st_internal",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Hide the entity from HA/web entirely"
+        },
+        {
+          "name": "st_rf_tx_pin",
+          "default": "",
+          "required": true,
+          "secret": false,
+          "description": "GPIO driving the transmitter DATA pin"
+        },
+        {
+          "name": "st_rf_tx_id",
+          "default": "st_rf_tx",
+          "required": false,
+          "secret": false,
+          "description": "Base id for the demo button (button id is ${st_rf_tx_id}_test)"
+        },
+        {
+          "name": "st_rf_tx_name",
+          "default": "RF Test",
+          "required": false,
+          "secret": false,
+          "description": "Name of the demo button (after st_name_prefix)"
+        },
+        {
+          "name": "st_rf_test_code",
+          "default": "000000000001010100010001",
+          "required": false,
+          "secret": false,
+          "description": "RC Switch binary code string the demo button transmits"
+        },
+        {
+          "name": "st_rf_test_protocol",
+          "default": "1",
+          "required": false,
+          "secret": false,
+          "description": "RC Switch protocol number for the demo code"
+        }
+      ],
+      "notes": [
+        "carrier_duty_percent is 100% - the documented value for RF. 433 MHz ASK transmitters have NO subcarrier, so the output must stay on for the whole mark (an IR-style 50% duty would halve the signal). IR transmitters use 50%; see ir_transmitter.yaml.",
+        "The demo button sends an RC Switch raw code via remote_transmitter.transmit_rc_switch_raw (code + protocol). Learn your real codes with rf_receiver.yaml (they print to the log), then set st_rf_test_code / st_rf_test_protocol, or add buttons via !extend using transmit_rc_switch_a/_b/_c/_d for typed dip-switch/button remotes.",
+        "The bare FS1000A needs a 17.3 cm wire antenna and ideally >3.3 V on VCC for real range; many run it off 5 V with the DATA pin still driven from a 3.3 V GPIO."
+      ],
+      "path": "templates/remote/rf_transmitter.yaml",
+      "body": "defaults:\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n  st_rf_tx_id: st_rf_tx\n  st_rf_tx_name: \"RF Test\"\n  st_rf_test_code: \"000000000001010100010001\"\n  st_rf_test_protocol: \"1\"\n\nremote_transmitter:\n  id: st_rf_transmitter\n  pin: ${st_rf_tx_pin}\n  # 100% duty for RF: ASK/OOK transmitters carry no subcarrier, the mark must stay fully on.\n  carrier_duty_percent: 100%\n  # Explicit: the default flipped to non-blocking in 2025.11 and warns when unset.\n  non_blocking: true\n\nbutton:\n  - platform: template\n    id: ${st_rf_tx_id}_test\n    name: \"${st_name_prefix}${st_rf_tx_name}\"\n    entity_category: config\n    icon: mdi:remote\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n    on_press:\n      - remote_transmitter.transmit_rc_switch_raw:\n          code: ${st_rf_test_code}\n          protocol: ${st_rf_test_protocol}\n"
     }
   ]
 }

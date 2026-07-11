@@ -1,0 +1,56 @@
+# @template: ld2450
+# @title: LD2450 mmWave Tracking
+# @category: presence
+# @description: HiLink LD2450 24GHz mmWave radar with multi-target tracking over UART. Exposes occupancy plus the active target count. Owns its own uart: bus.
+# @platforms: esp32, esp32s2, esp32s3, esp32c3, esp32c6
+# @requires: none
+# @entities: binary_sensor "Presence"; sensor "Target Count"
+# @var st_name_prefix []: Prefix prepended to every entity name
+# @var st_disabled_by_default [false]: Ship the entities disabled in HA
+# @var st_internal [false]: Hide the entities from HA/web entirely
+# @var st_state_class [measurement]: state_class for the target-count sensor; set "" to opt out of HA long-term statistics
+# @var st_ld2450_uart_tx_pin [(required)]: GPIO wired to the sensor RX pin (ESP TX)
+# @var st_ld2450_uart_rx_pin [(required)]: GPIO wired to the sensor TX pin (ESP RX)
+# @note: The LD2450 uses a fixed 256000 baud UART (parity NONE, 1 stop bit); firmware V2.02.23090617 or later is required. Use hardware UART pins. ESP32 has 3 hardware UARTs, C3/C6 have 2 - one is usually taken by the logger (UART0).
+# @note: The LD2450 tracks up to 3 targets and supports zones. This preset keeps it light (presence + count). Add per-target position via the ld2450 sensor platform (target_1 x/y/speed/distance/angle, target_2..3), or zone counts, with ld2450_id: st_ld2450 - or !extend st_ld2450 for install/multi-target/tracking-mode config.
+
+defaults:
+  st_name_prefix: ""
+  st_disabled_by_default: "false"
+  st_internal: "false"
+  st_state_class: measurement
+
+# Dedicated UART for this radar (256000 baud is the module's fixed rate).
+uart:
+  - id: st_ld2450_uart
+    tx_pin: ${st_ld2450_uart_tx_pin}
+    rx_pin: ${st_ld2450_uart_rx_pin}
+    baud_rate: 256000
+    parity: NONE
+    stop_bits: 1
+
+ld2450:
+  id: st_ld2450
+  uart_id: st_ld2450_uart
+
+binary_sensor:
+  - platform: ld2450
+    ld2450_id: st_ld2450
+    has_target:
+      id: st_ld2450_presence
+      name: "${st_name_prefix}Presence"
+      device_class: occupancy
+      disabled_by_default: ${st_disabled_by_default}
+      internal: ${st_internal}
+
+sensor:
+  - platform: ld2450
+    ld2450_id: st_ld2450
+    target_count:
+      id: st_ld2450_target_count
+      name: "${st_name_prefix}Target Count"
+      icon: mdi:account-group
+      accuracy_decimals: 0
+      state_class: "${st_state_class}"
+      disabled_by_default: ${st_disabled_by_default}
+      internal: ${st_internal}

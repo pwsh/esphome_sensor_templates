@@ -1,0 +1,52 @@
+# @template: buzzer_rtttl
+# @title: Passive Piezo Buzzer (RTTTL)
+# @category: audio
+# @description: A passive piezo buzzer driven by an ESP32 LEDC PWM output through the rtttl tone generator, with a demo test button. rtttl.play is callable from automations or Home Assistant.
+# @platforms: esp32, esp32s2, esp32s3, esp32c3, esp32c6
+# @requires: none
+# @entities: button "Buzzer Test"
+# @var st_name_prefix []: Prefix prepended to the entity name
+# @var st_disabled_by_default [false]: Ship the entity disabled in HA
+# @var st_internal [false]: Hide the entity from HA/web entirely
+# @var st_buzzer_id [st_buzzer]: rtttl component id - MUST be overridden on every extra include (see notes)
+# @var st_buzzer_name [Buzzer]: Base name used for the test button ("<prefix><name> Test")
+# @var st_buzzer_pin [(required)]: GPIO driving the passive buzzer
+# @var st_buzzer_gain [50%]: rtttl output gain / volume (0%-100%)
+# @var st_buzzer_test_tune [two_short:d=4,o=5,b=100:16e6,16e6]: RTTTL string played by the test button
+# @note: PASSIVE buzzers only. A passive piezo needs a PWM tone signal (this template). An ACTIVE buzzer has its own oscillator and just needs a plain GPIO on/off - use a switch/output template for those, not this file.
+# @note: MULTI-INSTANCE - include this file more than once for several buzzers. Each extra include MUST override st_buzzer_id AND st_buzzer_pin (duplicate ids or shared pins are errors). The LEDC output id (${st_buzzer_id}_out) and test button id (${st_buzzer_id}_test) derive from st_buzzer_id, so overriding it keeps them unique too.
+# @note: rtttl.play (id ${st_buzzer_id}) is callable from any automation or from Home Assistant to play arbitrary RTTTL ringtones, not just the demo tune.
+
+defaults:
+  st_name_prefix: ""
+  st_disabled_by_default: "false"
+  st_internal: "false"
+  st_buzzer_id: st_buzzer
+  st_buzzer_name: "Buzzer"
+  st_buzzer_gain: "50%"
+  st_buzzer_test_tune: "two_short:d=4,o=5,b=100:16e6,16e6"
+
+# LEDC PWM output feeding the tone generator. id derives from the buzzer id so it stays
+# unique per include.
+output:
+  - platform: ledc
+    id: ${st_buzzer_id}_out
+    pin: ${st_buzzer_pin}
+
+rtttl:
+  id: ${st_buzzer_id}
+  output: ${st_buzzer_id}_out
+  gain: ${st_buzzer_gain}
+
+button:
+  - platform: template
+    id: ${st_buzzer_id}_test
+    name: "${st_name_prefix}${st_buzzer_name} Test"
+    entity_category: config
+    icon: mdi:music-note
+    disabled_by_default: ${st_disabled_by_default}
+    internal: ${st_internal}
+    on_press:
+      - rtttl.play:
+          id: ${st_buzzer_id}
+          rtttl: "${st_buzzer_test_tune}"

@@ -1,0 +1,44 @@
+# @template: ds18b20
+# @title: DS18B20 Temperature
+# @category: environment
+# @description: Reads a Dallas DS18B20 temperature sensor over a dedicated 1-Wire bus. Owns its one_wire: bus (the only template that uses it).
+# @platforms: esp32, esp32s2, esp32s3, esp32c3, esp32c6
+# @requires: none
+# @entities: sensor "Temperature"
+# @var st_update_interval [60s]: How often to read the sensor
+# @var st_name_prefix []: Prefix prepended to the entity name
+# @var st_disabled_by_default [false]: Ship the entity disabled in HA
+# @var st_internal [false]: Hide the entity from HA/web entirely
+# @var st_state_class [measurement]: state_class for the reading; set "" to opt out of HA long-term statistics
+# @var st_ds18b20_pin [(required)]: GPIO connected to the 1-Wire DATA line
+# @var st_ds18b20_resolution [12] {9|10|11|12}: ADC resolution in bits (higher = slower conversion)
+# @note: A 4.7kΩ pull-up between DATA and 3.3V is required.
+# @note: This preset assumes ONE sensor on the bus (no address needed - it auto-selects the single device). For multiple DS18B20s on one bus, give each its own address via !extend st_ds18b20_temperature (address: 0x...) and add more dallas_temp sensors on the same st_ds18b20_one_wire bus. Run once with logs to read the discovered addresses.
+
+defaults:
+  st_update_interval: 60s
+  st_name_prefix: ""
+  st_disabled_by_default: "false"
+  st_internal: "false"
+  st_state_class: measurement
+  st_ds18b20_resolution: "12"
+
+# Dedicated 1-Wire bus - the modern replacement for the removed `dallas:` platform.
+one_wire:
+  - platform: gpio
+    pin: ${st_ds18b20_pin}
+    id: st_ds18b20_one_wire
+
+sensor:
+  - platform: dallas_temp
+    one_wire_id: st_ds18b20_one_wire
+    id: st_ds18b20_temperature
+    name: "${st_name_prefix}Temperature"
+    device_class: temperature
+    unit_of_measurement: "°C"
+    accuracy_decimals: 1
+    resolution: ${st_ds18b20_resolution}
+    update_interval: ${st_update_interval}
+    state_class: "${st_state_class}"
+    disabled_by_default: ${st_disabled_by_default}
+    internal: ${st_internal}
