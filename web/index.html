@@ -195,22 +195,35 @@ function browserTz(){
   try{ return Intl.DateTimeFormat().resolvedOptions().timeZone||""; }catch(e){ return ""; }
 }
 
-const BOARDS=[
-  {label:"ESP32 DevKit",           board:"esp32dev",            chip:"esp32"},
-  {label:"NodeMCU-32S",            board:"nodemcu-32s",         chip:"esp32"},
-  {label:"WEMOS D1 Mini ESP32",    board:"wemos_d1_mini32",     chip:"esp32"},
-  {label:"ESP32-CAM AI-Thinker",   board:"esp32cam",            chip:"esp32",   psram:"quad"},
-  {label:"WROVER Kit",             board:"esp-wrover-kit",      chip:"esp32",   psram:"quad"},
-  {label:"ESP32-S3 DevKitC N8R8",  board:"esp32-s3-devkitc-1",  chip:"esp32s3", psram:"octal"},
-  {label:"ESP32-S3 DevKitC N16R8", board:"esp32-s3-devkitc-1",  chip:"esp32s3", psram:"octal"},
-  {label:"ESP32-C3 DevKitM",       board:"esp32-c3-devkitm-1",  chip:"esp32c3"},
-  {label:"Seeed XIAO ESP32-C3",    board:"seeed_xiao_esp32c3",  chip:"esp32c3"},
-  {label:"LOLIN C3 Mini",          board:"lolin_c3_mini",       chip:"esp32c3"},
-  {label:"ESP32-S2 Saola",         board:"esp32-s2-saola-1",    chip:"esp32s2"},
-  {label:"ESP32-C6 DevKitC",       board:"esp32-c6-devkitc-1",  chip:"esp32c6"},
-  {label:"M5Stack Atom Lite",      board:"m5stack-atom",        chip:"esp32"},
+// All ESP32 variants ESPHome supports (https://esphome.io/components/esp32/).
+const VARIANTS=["esp32","esp32s2","esp32s3","esp32c2","esp32c3","esp32c5",
+  "esp32c6","esp32c61","esp32h2","esp32p4"];
+// Chips the template library's @platforms lines have been audited against.
+const AUDITED=new Set(PLATFORMS);
+// Verified on ESPHome 2026.6.5: a wifi: block fails validation on these chips.
+const NO_WIFI=new Set(["esp32h2","esp32p4"]);
+const VARIANT_LABELS={esp32:"ESP32",esp32s2:"ESP32-S2",esp32s3:"ESP32-S3",
+  esp32c2:"ESP32-C2",esp32c3:"ESP32-C3",esp32c5:"ESP32-C5",esp32c6:"ESP32-C6",
+  esp32c61:"ESP32-C61",esp32h2:"ESP32-H2",esp32p4:"ESP32-P4"};
+// Generic entries emit the modern variant-only form (no board: key - ESPHome
+// auto-selects a standard Espressif devkit board). Named entries emit board:.
+const BOARDS=VARIANTS.map(v=>({label:VARIANT_LABELS[v]+" (generic devkit)", variant:v, chip:v, group:"generic"}))
+.concat([
+  {label:"ESP32 DevKit",           board:"esp32dev",            chip:"esp32",   group:"named"},
+  {label:"NodeMCU-32S",            board:"nodemcu-32s",         chip:"esp32",   group:"named"},
+  {label:"WEMOS D1 Mini ESP32",    board:"wemos_d1_mini32",     chip:"esp32",   group:"named"},
+  {label:"ESP32-CAM AI-Thinker",   board:"esp32cam",            chip:"esp32",   group:"named", psram:"quad"},
+  {label:"WROVER Kit",             board:"esp-wrover-kit",      chip:"esp32",   group:"named", psram:"quad"},
+  {label:"ESP32-S3 DevKitC N8R8",  board:"esp32-s3-devkitc-1",  chip:"esp32s3", group:"named", psram:"octal"},
+  {label:"ESP32-S3 DevKitC N16R8", board:"esp32-s3-devkitc-1",  chip:"esp32s3", group:"named", psram:"octal"},
+  {label:"ESP32-C3 DevKitM",       board:"esp32-c3-devkitm-1",  chip:"esp32c3", group:"named"},
+  {label:"Seeed XIAO ESP32-C3",    board:"seeed_xiao_esp32c3",  chip:"esp32c3", group:"named"},
+  {label:"LOLIN C3 Mini",          board:"lolin_c3_mini",       chip:"esp32c3", group:"named"},
+  {label:"ESP32-S2 Saola",         board:"esp32-s2-saola-1",    chip:"esp32s2", group:"named"},
+  {label:"ESP32-C6 DevKitC",       board:"esp32-c6-devkitc-1",  chip:"esp32c6", group:"named"},
+  {label:"M5Stack Atom Lite",      board:"m5stack-atom",        chip:"esp32",   group:"named"},
   {label:"Custom…",                board:"",                    chip:"",        custom:true},
-];
+]);
 
 /* ============================================================================
  * HELPERS
@@ -380,6 +393,7 @@ function deviceBaseVars(){
 function buildPlan(){
   const dev=state.device.enabled?state.device:null;
   const hoist=!!(dev&&dev.hoist);
+  const noWifi=!!(dev&&NO_WIFI.has(boardInfo().chip));
   let sel=selection();
   // With the device panel on, device_base comes from the panel — a manual
   // selection of it in the list is ignored to avoid conflicting identity vars.
@@ -442,7 +456,7 @@ function buildPlan(){
       });
     });
   }
-  return {dev,hoist,sel,slugs,items,hoisted};
+  return {dev,hoist,noWifi,sel,slugs,items,hoisted};
 }
 // Time-source ids provided by selected templates (slug -> time component id).
 const TIME_SLUG_IDS={time_sntp:"st_time_sntp", time_homeassistant:"st_time_ha", gps:"st_time_gps"};
@@ -465,9 +479,10 @@ function buildSubLines(plan, inlineKnobs){
     const netNames=new Set(["st_ntp_server","st_ap_ssid"]);
     const netHoisted=plan.hoisted.filter(h=>netNames.has(h[0]));
     const tz = d.timezone && selectedTimeIds(plan.slugs).length ? d.timezone : null;
-    if(d.staticIp||netHoisted.length||tz){
+    const staticNet = d.staticIp && !plan.noWifi;   // no wifi: block -> no manual_ip refs
+    if(staticNet||netHoisted.length||tz){
       rows.push("  # --- network ---");
-      if(d.staticIp){
+      if(staticNet){
         push("ip_address",d.ip); push("gateway",d.gateway);
         push("subnet",d.subnet); push("dns_server",d.dns||d.gateway);
       }
@@ -512,30 +527,41 @@ function annotationFor(t, idx, indent){
 }
 // esp32 / wifi / logger prefix blocks (packages modes). Inline mode builds its
 // own version of this as a mergeable body — see deviceInlineBody.
-function deviceTopBlocks(plan){
-  const dev=plan.dev; if(!dev) return [];
+// The esp32: block lines shared by packages and inline emission. Generic
+// entries use the modern variant-only form; named/custom entries use board:.
+function esp32BlockLines(){
   const b=boardInfo();
-  const L=[];
-  L.push("esp32:");
-  L.push("  board: "+yamlScalar(b.board));
+  const L=["esp32:"];
+  if(b.variant && !b.board) L.push("  variant: "+b.variant);
+  else L.push("  board: "+yamlScalar(b.board));
+  if(b.chip==="esp32p4") L.push("  engineering_sample: false  # set true for rev <3.0 engineering-sample silicon");
   L.push("  framework:");
   L.push("    type: esp-idf");
-  L.push("");
-  L.push("wifi:");
-  L.push("  ssid: "+yamlScalar(dev.ssid));
-  L.push("  password: "+yamlScalar(dev.password));
-  if(dev.staticIp){
-    L.push("  manual_ip:");
-    if(plan.hoist){
-      L.push("    static_ip: ${ip_address}");
-      L.push("    gateway: ${gateway}");
-      L.push("    subnet: ${subnet}");
-      L.push("    dns1: ${dns_server}");
-    }else{
-      L.push("    static_ip: "+yamlScalar(dev.ip));
-      L.push("    gateway: "+yamlScalar(dev.gateway));
-      L.push("    subnet: "+yamlScalar(dev.subnet));
-      L.push("    dns1: "+yamlScalar(dev.dns||dev.gateway));
+  return L;
+}
+function deviceTopBlocks(plan){
+  const dev=plan.dev; if(!dev) return [];
+  const L=esp32BlockLines();
+  // No-WiFi chips (esp32h2/esp32p4): a wifi: block fails validation, so the
+  // whole network section is omitted.
+  if(!plan.noWifi){
+    L.push("");
+    L.push("wifi:");
+    L.push("  ssid: "+yamlScalar(dev.ssid));
+    L.push("  password: "+yamlScalar(dev.password));
+    if(dev.staticIp){
+      L.push("  manual_ip:");
+      if(plan.hoist){
+        L.push("    static_ip: ${ip_address}");
+        L.push("    gateway: ${gateway}");
+        L.push("    subnet: ${subnet}");
+        L.push("    dns1: ${dns_server}");
+      }else{
+        L.push("    static_ip: "+yamlScalar(dev.ip));
+        L.push("    gateway: "+yamlScalar(dev.gateway));
+        L.push("    subnet: "+yamlScalar(dev.subnet));
+        L.push("    dns1: "+yamlScalar(dev.dns||dev.gateway));
+      }
     }
   }
   // The library's core/logger template owns logger: when selected.
@@ -849,23 +875,24 @@ function extendWarnings(text){
 // declare wifi:/logger: keys (captive_portal adds wifi: ap:), so this must go
 // through the structural merge rather than be pasted above the tree.
 function deviceInlineBody(plan){
-  const d=plan.dev, b=boardInfo();
-  const L=[];
-  L.push("esp32:","  board: "+yamlScalar(b.board),"  framework:","    type: esp-idf");
-  L.push("wifi:","  ssid: "+yamlScalar(d.ssid),"  password: "+yamlScalar(d.password));
-  if(d.staticIp){
-    if(plan.hoist){
-      L.push("  manual_ip:",
-        "    static_ip: ${ip_address}",
-        "    gateway: ${gateway}",
-        "    subnet: ${subnet}",
-        "    dns1: ${dns_server}");
-    }else{
-      L.push("  manual_ip:",
-        "    static_ip: "+yamlScalar(d.ip),
-        "    gateway: "+yamlScalar(d.gateway),
-        "    subnet: "+yamlScalar(d.subnet),
-        "    dns1: "+yamlScalar(d.dns||d.gateway));
+  const d=plan.dev;
+  const L=esp32BlockLines();
+  if(!plan.noWifi){
+    L.push("wifi:","  ssid: "+yamlScalar(d.ssid),"  password: "+yamlScalar(d.password));
+    if(d.staticIp){
+      if(plan.hoist){
+        L.push("  manual_ip:",
+          "    static_ip: ${ip_address}",
+          "    gateway: ${gateway}",
+          "    subnet: ${subnet}",
+          "    dns1: ${dns_server}");
+      }else{
+        L.push("  manual_ip:",
+          "    static_ip: "+yamlScalar(d.ip),
+          "    gateway: "+yamlScalar(d.gateway),
+          "    subnet: "+yamlScalar(d.subnet),
+          "    dns1: "+yamlScalar(d.dns||d.gateway));
+      }
     }
   }
   if(!plan.slugs.has("logger")) L.push("logger:");
@@ -1005,7 +1032,8 @@ function requirementStatus(){
   const sel=selection();
   const slugs=new Set(sel.map(s=>s.t.slug));
   const satisfied={
-    wifi:true,
+    // No-WiFi chips can never satisfy a wifi requirement.
+    wifi: !(state.device.enabled && NO_WIFI.has(boardInfo().chip)),
     api: slugs.has("api"),
     time: slugs.has("time_sntp")||slugs.has("time_homeassistant")||slugs.has("gps"),
     i2c: slugs.has("i2c"),
@@ -1059,7 +1087,7 @@ function renderShell(){
 
   // chips
   const chips=byId("chips");
-  ["all",...PLATFORMS].forEach(p=>{
+  ["all",...VARIANTS].forEach(p=>{
     const b=document.createElement("button");
     b.className="chip"; b.textContent = p==="all"?"All":p;
     b.setAttribute("aria-pressed", state.chip===p);
@@ -1123,19 +1151,29 @@ function renderDevice(){
   let h='<div class="settings">'
     +'<div class="check"><input id="d-on" type="checkbox" '+(d.enabled?"checked":"")+'>'
     +'<label for="d-on" style="font-weight:600">Generate complete device config</label></div>';
+  const bi=boardInfo();
+  const noWifi=NO_WIFI.has(bi.chip);
   if(d.enabled){
+    const opt=(x,i)=>'<option value="'+i+'"'+(i===d.board?' selected':'')+'>'+eschtml(x.label)+'</option>';
+    let boardOpts='<optgroup label="Generic (by variant)">'
+      +BOARDS.map((x,i)=>x.group==="generic"?opt(x,i):"").join("")+'</optgroup>'
+      +'<optgroup label="Named boards">'
+      +BOARDS.map((x,i)=>x.group==="named"?opt(x,i):"").join("")+'</optgroup>'
+      +BOARDS.map((x,i)=>(!x.group)?opt(x,i):"").join("");
     h+='<h2 class="section">Board</h2><div class="grid">'
-      +'<div class="field"><label for="d-board">Board</label><select id="d-board">'
-      +BOARDS.map((x,i)=>'<option value="'+i+'"'+(i===d.board?' selected':'')+'>'+eschtml(x.label)+'</option>').join("")
-      +'</select></div>';
+      +'<div class="field"><label for="d-board">Board</label><select id="d-board">'+boardOpts+'</select></div>';
     if(b.custom){
       h+=F("d-cboard","Board id",d.customBoard,"esp32dev")
-        +'<div class="field"><label for="d-cchip">Chip</label><select id="d-cchip">'
-        +PLATFORMS.map(p=>'<option'+(p===d.customChip?' selected':'')+'>'+p+'</option>').join("")
+        +'<div class="field"><label for="d-cchip">Variant</label><select id="d-cchip">'
+        +VARIANTS.map(p=>'<option'+(p===d.customChip?' selected':'')+'>'+p+'</option>').join("")
         +'</select></div>';
     }
-    h+='</div>'
-      +'<h2 class="section">Device identity</h2><div class="grid">'
+    h+='</div>';
+    if(bi.chip && !AUDITED.has(bi.chip)){
+      h+='<div class="help" style="font-size:11.5px;color:var(--warn-fg);margin-top:4px">'
+        +'Template compatibility on this chip has not been audited - most templates should work where the hardware supports them.</div>';
+    }
+    h+='<h2 class="section">Device identity</h2><div class="grid">'
       +F("d-name","Name *",d.name,"my-device","Hostname: lowercase letters, digits, hyphens")
       +F("d-friendly","Friendly name *",d.friendly,"My Device","")
       +F("d-comment","Comment",d.comment,"","")
@@ -1145,21 +1183,27 @@ function renderDevice(){
       +'</div>'
       +'<div class="check" style="margin-top:8px"><input id="d-mac" type="checkbox" '+(d.macSuffix?"checked":"")+'>'
       +'<label for="d-mac" style="font-weight:400">Append MAC suffix to the name</label></div>'
-      +'<h2 class="section">Network</h2><div class="grid">'
-      +F("d-ssid","WiFi SSID",d.ssid,"","")
-      +F("d-pass","WiFi password",d.password,"","")
-      +'</div>'
-      +'<div class="check" style="margin-top:8px">'
-      +'<input id="d-dhcp" type="radio" name="d-net" '+(!d.staticIp?"checked":"")+'><label for="d-dhcp" style="font-weight:400">DHCP</label>'
-      +'<input id="d-static" type="radio" name="d-net" style="margin-left:14px" '+(d.staticIp?"checked":"")+'><label for="d-static" style="font-weight:400">Static IP</label>'
-      +'</div>';
-    if(d.staticIp){
-      h+='<div class="grid" style="margin-top:8px">'
-        +F("d-ip","IP address",d.ip,"192.168.1.50","")
-        +F("d-gw","Gateway",d.gateway,"192.168.1.1","")
-        +F("d-subnet","Subnet",d.subnet,"255.255.255.0","")
-        +F("d-dns","DNS",d.dns,"(defaults to gateway)","")
+      +'<h2 class="section">Network</h2>';
+    if(noWifi){
+      h+='<div class="help" style="font-size:11.5px;color:var(--warn-fg)">'
+        +eschtml(VARIANT_LABELS[bi.chip]||bi.chip)+' has no WiFi radio - WiFi, static IP and fallback AP settings do not apply.</div>';
+    }else{
+      h+='<div class="grid">'
+        +F("d-ssid","WiFi SSID",d.ssid,"","")
+        +F("d-pass","WiFi password",d.password,"","")
+        +'</div>'
+        +'<div class="check" style="margin-top:8px">'
+        +'<input id="d-dhcp" type="radio" name="d-net" '+(!d.staticIp?"checked":"")+'><label for="d-dhcp" style="font-weight:400">DHCP</label>'
+        +'<input id="d-static" type="radio" name="d-net" style="margin-left:14px" '+(d.staticIp?"checked":"")+'><label for="d-static" style="font-weight:400">Static IP</label>'
         +'</div>';
+      if(d.staticIp){
+        h+='<div class="grid" style="margin-top:8px">'
+          +F("d-ip","IP address",d.ip,"192.168.1.50","")
+          +F("d-gw","Gateway",d.gateway,"192.168.1.1","")
+          +F("d-subnet","Subnet",d.subnet,"255.255.255.0","")
+          +F("d-dns","DNS",d.dns,"(defaults to gateway)","")
+          +'</div>';
+      }
     }
     const tz=tzList();
     const tzHint=browserTz();
@@ -1170,7 +1214,7 @@ function renderDevice(){
     if(!tz.full) tzOpts+='<option value="__other__"'+(d.tzCustom?' selected':'')+'>Other…</option>';
     h+='<div class="grid" style="margin-top:8px">'
       +F("d-ntp","NTP server",d.ntpServer,"","Used when core/time_sntp is selected")
-      +F("d-ap","Fallback AP SSID",d.apSsid,"","Used when core/captive_portal is selected")
+      +(noWifi?"":F("d-ap","Fallback AP SSID",d.apSsid,"","Used when core/captive_portal is selected"))
       +'<div class="field"><label for="d-tz">Timezone</label><select id="d-tz">'+tzOpts+'</select>'
       +(tzHint?'<div class="help" style="font-size:11.5px;color:var(--muted);margin-top:2px">Browser timezone: '+eschtml(tzHint)+'</div>':'')
       +'</div>'
@@ -1279,7 +1323,10 @@ function renderCatalog(){
   if(!host.children.length) host.innerHTML='<div class="empty">No templates match your search.</div>';
 }
 function renderRow(t){
-  const supported = state.chip==="all" || t.platforms.includes(state.chip);
+  // Audited chips: hard @platforms filtering. Unaudited variants (c2/c5/c61/
+  // h2/p4): everything stays selectable with an amber "unaudited" badge.
+  const unaudited = state.chip!=="all" && !AUDITED.has(state.chip);
+  const supported = state.chip==="all" || unaudited || t.platforms.includes(state.chip);
   const row=document.createElement("div");
   row.className="row"+(supported?"":" disabled");
 
@@ -1296,7 +1343,8 @@ function renderRow(t){
   const reqBadges=(t.requires||[]).filter(r=>r&&r!=="none").map(r=>'<span class="badge">requires '+eschtml(r)+'</span>').join("");
   const entCount=(t.entities||[]).length;
   const entBadge=entCount?'<span class="badge">'+entCount+' '+(entCount===1?"entity":"entities")+'</span>':"";
-  const notBadge=supported?"":'<span class="badge warn">not on '+eschtml(state.chip)+'</span>';
+  const notBadge=!supported?'<span class="badge warn">not on '+eschtml(state.chip)+'</span>'
+    :(unaudited?'<span class="badge warn">unaudited on '+eschtml(state.chip)+'</span>':"");
   main.innerHTML=
     '<div class="row-title">'+eschtml(t.title)+notBadge+'</div>'
     +'<div class="row-desc">'+eschtml(t.description)+'</div>'
@@ -1403,11 +1451,17 @@ function renderAdvisor(){
   const identMissing = d.enabled && (!d.name || !d.friendly);
   const tzOrphan = d.enabled && d.timezone!=="" &&
     selectedTimeIds(new Set(selection().map(s=>s.t.slug))).length===0;
-  if(!missing.length && !reminders.length && !identMissing && !tzOrphan){ box.className="advisor hidden"; box.innerHTML=""; return; }
+  const noWifiChip = d.enabled && NO_WIFI.has(boardInfo().chip);
+  if(!missing.length && !reminders.length && !identMissing && !tzOrphan && !noWifiChip){ box.className="advisor hidden"; box.innerHTML=""; return; }
   box.className="advisor";
   let html="";
+  if(noWifiChip){
+    html+="<strong>"+eschtml(VARIANT_LABELS[boardInfo().chip]||boardInfo().chip)+" has no WiFi radio</strong> - "
+      +"wifi-dependent templates (api, web_server, network category, captive_portal, mqtt, time_sntp...) will not work. "
+      +"The P4 is normally paired with a companion chip for connectivity.";
+  }
   if(identMissing){
-    html+="<strong>Device panel:</strong> device name and friendly name are required for a complete config.";
+    html+=(html?"<br>":"")+"<strong>Device panel:</strong> device name and friendly name are required for a complete config.";
   }
   if(tzOrphan){
     html+=(html?"<br>":"")+"<strong>Device panel:</strong> timezone set but no time source selected (add core/time_sntp, core/time_homeassistant, or presence/gps).";
@@ -1547,7 +1601,8 @@ if(typeof module!=="undefined"){ module.exports={
   substitute, extendWarnings, varInputKind, renderInstance, state,
   normalizeRequire, isMultiInstance, requirementStatus,
   buildPlan, genRemote, genLocal, genInline, boardInfo, newInstance, BOARDS,
-  buildSubLines, timezoneOverlay, injectTimezone, inlineKnobRows, selectedTimeIds, tzList
+  buildSubLines, timezoneOverlay, injectTimezone, inlineKnobRows, selectedTimeIds, tzList,
+  VARIANTS, AUDITED, NO_WIFI, esp32BlockLines
 }; }
 })();
 </script>
