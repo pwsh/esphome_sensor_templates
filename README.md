@@ -1,13 +1,36 @@
 # ESPHome Sensor Templates
 
-Reusable, standalone ESPHome template files for ESP32-family devices (ESP-IDF framework).
+74 reusable, standalone ESPHome template files for ESP32-family devices (ESP-IDF framework),
+plus a point-and-click **[config builder](https://pwsh.github.io/esphome_sensor_templates/)**.
 Each template is a self-contained [package](https://esphome.io/components/packages/): include one
-file, get a working, documented sensor with sensible defaults — customize per sensor via
+file, get a working, documented feature with sensible defaults — customize per sensor via
 `vars:` or globally via top-level `substitutions:`.
 
-**Minimum ESPHome version: 2026.5.0.** Target platforms: ESP32, ESP32-S2, ESP32-S3, ESP32-C3, ESP32-C6.
+**Minimum ESPHome version: 2026.5.0.** Audited platforms: ESP32, ESP32-S2, ESP32-S3, ESP32-C3,
+ESP32-C6 (the builder also offers C2/C5/C61/H2/P4, marked unaudited).
 
-## Quick start
+**Categories:** core (14) · diagnostics (16) · network (7) · lighting (5) · audio (4) ·
+environment (5) · presence (2) · bluetooth (2) · remote (4) · peripherals (4) · controls (6) ·
+inputs (5) — full index below, one doc page per template in [docs/](docs/).
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for how the system fits together and
+[STATUS.md](STATUS.md) for the current project state, verification coverage, and limitations.
+
+## Config builder
+
+**<https://pwsh.github.io/esphome_sensor_templates/>** — pick a board (all 10 ESP32 variants),
+fill in device identity/network/timezone, select templates (per-template variable editors,
+dropdowns for enumerated options, a requirements advisor with one-click fixes), and copy a
+complete flashable YAML in any of three forms: remote `github://` packages, local vendored
+includes, or fully inlined. With substitutions-hoisting on (default), every customization lands
+in one `substitutions:` block at the top — reuse the config across devices by editing only that
+block. Also works offline: open `web/index.html` straight from a checkout.
+
+![Config builder](docs/images/builder.png)
+
+![Generated output: annotations, hoisted substitutions, secrets checklist](docs/images/builder-output.png)
+
+## Quick start (YAML by hand)
 
 ```yaml
 packages:
@@ -20,8 +43,12 @@ substitutions:
   st_update_interval: 120s   # global default for every included template
 ```
 
-Or use the point-and-click builder: open `web/index.html` in a browser, pick sensors, copy the
-generated YAML.
+Or remotely, with no local copy:
+
+```yaml
+packages:
+  heap: github://pwsh/esphome_sensor_templates/templates/diagnostics/heap.yaml@main
+```
 
 ## Global knobs
 
@@ -174,8 +201,20 @@ Set any of these once in your top-level `substitutions:` to affect every include
 
 <!-- END GENERATED INDEX -->
 
+## Examples
+
+| Config | Board | Shows |
+|---|---|---|
+| [minimal](examples/minimal.yaml) | ESP32-C3 | three includes, global + per-include overrides |
+| [full_diagnostics](examples/full_diagnostics.yaml) | ESP32 | whole diagnostics/network suite; global 5-min interval and long-term-statistics opt-out actually applied |
+| [all_templates](examples/all_templates.yaml) | ESP32-S3 | every S3-compatible template merged at once (the no-collision proof), multi-instance inputs, name-prefix pattern |
+| [peripherals_esp32](examples/peripherals_esp32.yaml) | ESP32 | camera/IR/RF/LD2450/syslog; the entire `esphome:` identity supplied by the device_base package |
+
 ## Development
 
+- System design: [ARCHITECTURE.md](ARCHITECTURE.md) · current state: [STATUS.md](STATUS.md)
 - Authoring rules: [CONVENTIONS.md](CONVENTIONS.md)
 - Regenerate catalog/docs/README index: `python3 tools/build_catalog.py`
-- Validate everything: `tools/validate.sh`
+- Validate everything: `tools/validate.sh` (creates its own venv + dummy secrets; add `--compile`
+  for a real firmware build)
+- Every push to `main` regenerates the catalog and redeploys the builder via GitHub Pages
