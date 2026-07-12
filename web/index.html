@@ -160,6 +160,7 @@ const state = {
   repo: "OWNER/esphome_sensor_templates",
   ref: "main",
   basePath: "esphome_sensor_templates",
+  annotate: true,              // template comments in the generated YAML
   device: {
     enabled: true,
     hoist: true,               // collect customizations into substitutions:
@@ -172,8 +173,27 @@ const state = {
     staticIp: false, ip: "", gateway: "", subnet: "255.255.255.0", dns: "",
     ntpServer: "0.pool.ntp.org",
     apSsid: "Fallback Hotspot",
+    timezone: "",              // "" = auto (from build machine)
+    tzCustom: false,           // fallback list only: free-text entry active
   },
 };
+
+// Curated fallback when Intl.supportedValuesOf is unavailable.
+const TZ_FALLBACK=["UTC","America/New_York","America/Chicago","America/Denver",
+  "America/Phoenix","America/Los_Angeles","America/Anchorage","America/Sao_Paulo",
+  "Europe/London","Europe/Berlin","Europe/Paris","Europe/Madrid","Europe/Rome",
+  "Europe/Warsaw","Europe/Kyiv","Asia/Tokyo","Asia/Shanghai","Asia/Kolkata",
+  "Asia/Dubai","Australia/Sydney","Pacific/Auckland"];
+function tzList(){
+  try{
+    const z=Intl.supportedValuesOf("timeZone");
+    if(z&&z.length) return {zones:z, full:true};
+  }catch(e){}
+  return {zones:TZ_FALLBACK, full:false};
+}
+function browserTz(){
+  try{ return Intl.DateTimeFormat().resolvedOptions().timeZone||""; }catch(e){ return ""; }
+}
 
 const BOARDS=[
   {label:"ESP32 DevKit",           board:"esp32dev",            chip:"esp32"},
@@ -335,7 +355,7 @@ const DEVICE_BASE_SLUG="device_base";
 // Substitution names owned by the device panel — never used for hoisting.
 const DEVICE_RESERVED=["st_device_name","st_friendly_name","st_device_comment","st_area",
   "st_name_add_mac_suffix","st_project_name","st_project_version",
-  "ip_address","gateway","subnet","dns_server"];
+  "ip_address","gateway","subnet","dns_server","timezone"];
 
 function boardInfo(){
   const d=state.device;
@@ -424,11 +444,19 @@ function buildPlan(){
   }
   return {dev,hoist,sel,slugs,items,hoisted};
 }
-// The substitutions: block body (indented rows, with section comments in
-// hoist mode). Empty array = omit the block.
-function buildSubLines(plan){
-  const rows=[];
-  const push=(k,v)=>rows.push("  "+k+": "+yamlScalar(v));
+// Time-source ids provided by selected templates (slug -> time component id).
+const TIME_SLUG_IDS={time_sntp:"st_time_sntp", time_homeassistant:"st_time_ha", gps:"st_time_gps"};
+function selectedTimeIds(slugs){
+  return Object.keys(TIME_SLUG_IDS).filter(s=>slugs.has(s)).map(s=>TIME_SLUG_IDS[s]);
+}
+// The substitutions: block: {rows, map}. rows = indented lines (with section
+// comments in hoist mode) — empty means omit the block; map = name->value of
+// every emitted substitution (inline mode leaves matching ${name} unresolved).
+// inlineKnobs (inline mode only): shared knobs referenced by the merged bodies
+// at their effective values — they replace the plain globalSubs rows.
+function buildSubLines(plan, inlineKnobs){
+  const rows=[], map={};
+  const push=(k,v)=>{ rows.push("  "+k+": "+yamlScalar(v)); map[k]=v; };
   if(plan.dev&&plan.hoist){
     const d=plan.dev;
     rows.push("  # --- device identity ---");
@@ -436,16 +464,18 @@ function buildSubLines(plan){
     Object.keys(dv).forEach(k=>push(k,dv[k]));
     const netNames=new Set(["st_ntp_server","st_ap_ssid"]);
     const netHoisted=plan.hoisted.filter(h=>netNames.has(h[0]));
-    if(d.staticIp||netHoisted.length){
+    const tz = d.timezone && selectedTimeIds(plan.slugs).length ? d.timezone : null;
+    if(d.staticIp||netHoisted.length||tz){
       rows.push("  # --- network ---");
       if(d.staticIp){
         push("ip_address",d.ip); push("gateway",d.gateway);
         push("subnet",d.subnet); push("dns_server",d.dns||d.gateway);
       }
+      if(tz) push("timezone",tz);
       netHoisted.forEach(([k,v])=>push(k,v));
     }
     const rest=plan.hoisted.filter(h=>!netNames.has(h[0]));
-    const g=globalSubs();
+    const g=inlineKnobs||globalSubs();
     if(g.length||rest.length){
       rows.push("  # --- template settings ---");
       g.forEach(([k,v])=>push(k,v));
@@ -454,7 +484,31 @@ function buildSubLines(plan){
   }else{
     globalSubs().forEach(([k,v])=>push(k,v));
   }
-  return rows;
+  return {rows, map};
+}
+// Overlay forcing the chosen timezone onto each selected time source
+// (packages modes only — !extend targets ids defined inside the packages).
+function timezoneOverlay(plan){
+  const dev=plan.dev;
+  if(!dev||!dev.timezone) return [];
+  const ids=selectedTimeIds(plan.slugs);
+  if(!ids.length) return [];
+  const val=plan.hoist ? "${timezone}" : yamlScalar(dev.timezone);
+  const L=["","# Force the timezone on the included time source(s)","time:"];
+  ids.forEach(id=>{ L.push("  - id: !extend "+id); L.push("    timezone: "+val); });
+  return L;
+}
+// Comment lines describing a template (annotate mode, packages output).
+function annotationFor(t, idx, indent){
+  if(!state.annotate) return [];
+  const pad=" ".repeat(indent==null?2:indent);
+  const first=(((t.description||"").match(/^[^.]*\./)||[t.description||""])[0]).trim();
+  const title=t.title+(idx>0?" (instance "+(idx+1)+")":"");
+  const L=[pad+"# "+title+(first?" - "+first:"")];
+  if((t.entities||[]).length){
+    L.push(pad+"#   entities: "+t.entities.map(e=>e.domain+' "'+e.name+'"').join("; "));
+  }
+  return L;
 }
 // esp32 / wifi / logger prefix blocks (packages modes). Inline mode builds its
 // own version of this as a mergeable body — see deviceInlineBody.
@@ -497,7 +551,7 @@ function emitHead(lines, plan){
     lines.push("# WARNING: device name and friendly name are required - fill them in the Device panel.");
     lines.push("");
   }
-  const subs=buildSubLines(plan);
+  const subs=buildSubLines(plan).rows;
   if(subs.length){ lines.push("substitutions:"); subs.forEach(l=>lines.push(l)); lines.push(""); }
   const top=deviceTopBlocks(plan);
   if(top.length){ top.forEach(l=>lines.push(l)); lines.push(""); }
@@ -522,9 +576,15 @@ function genRemote(){
   const lines=missingRequiredWarnings(plan.sel);
   emitHead(lines, plan);
   lines.push("packages:");
+  const multiCat=new Set(plan.items.map(it=>it.t.category)).size>1;
   const remoteFiles=[];
+  let lastCat=null;
   plan.items.forEach(it=>{
     if(Object.keys(it.vars).length===0){
+      if(state.annotate&&multiCat&&it.t.category!==lastCat){
+        lines.push("  # --- "+it.t.category+" ---"); lastCat=it.t.category;
+      }
+      annotationFor(it.t,it.idx,2).forEach(l=>lines.push(l));
       lines.push("  "+it.key+": github://"+owner+"/"+repo+"/"+it.t.path+"@"+state.ref);
     }else{
       remoteFiles.push(it);
@@ -537,10 +597,12 @@ function genRemote(){
     lines.push("    refresh: 1d");
     lines.push("    files:");
     remoteFiles.forEach(f=>{
+      annotationFor(f.t,f.idx,6).forEach(l=>lines.push(l));
       lines.push("      - path: "+f.t.path);
       lines.push("        vars: "+flowMap(f.vars));
     });
   }
+  timezoneOverlay(plan).forEach(l=>lines.push(l));
   return withSecretsFooter(lines.join("\n"), !!plan.dev);
 }
 
@@ -554,7 +616,13 @@ function genLocal(){
   const lines=missingRequiredWarnings(plan.sel);
   emitHead(lines, plan);
   lines.push("packages:");
+  const multiCat=new Set(plan.items.map(it=>it.t.category)).size>1;
+  let lastCat=null;
   plan.items.forEach(it=>{
+    if(state.annotate&&multiCat&&it.t.category!==lastCat){
+      lines.push("  # --- "+it.t.category+" ---"); lastCat=it.t.category;
+    }
+    annotationFor(it.t,it.idx,2).forEach(l=>lines.push(l));
     const path=base+"/"+it.t.path;
     if(Object.keys(it.vars).length===0){
       lines.push("  "+it.key+": !include "+path);
@@ -564,19 +632,23 @@ function genLocal(){
       lines.push("    vars: "+flowMap(it.vars));
     }
   });
+  timezoneOverlay(plan).forEach(l=>lines.push(l));
   return withSecretsFooter(lines.join("\n"), !!plan.dev);
 }
 
 /* ============================================================================
  * INLINE MODE — structural indentation merge
  * ========================================================================== */
-// Drop the leading `defaults:` block (key + its indented children).
+// Drop the var-declaration blocks (top-level `defaults:` and `substitutions:`
+// keys + their indented children). Inline mode resolves or re-emits every var
+// itself, so a leaked declaration block would clash with the builder's own
+// substitutions: block and pollute the merged tree.
 function dropDefaults(body){
   const lines=body.split("\n");
   const out=[]; let skipping=false;
   for(let i=0;i<lines.length;i++){
     const l=lines[i];
-    if(/^defaults:\s*$/.test(l)){ skipping=true; continue; }
+    if(/^(defaults|substitutions):\s*$/.test(l)){ skipping=true; continue; }
     if(skipping){
       if(l.trim()==="") continue;                       // blank inside/after block
       if(/^\s/.test(l)) continue;                        // indented child of defaults
@@ -586,11 +658,28 @@ function dropDefaults(body){
   }
   return out.join("\n");
 }
-function substitute(body, t, inst){
-  return body.replace(/\$\{([^}]+)\}/g, (m,name)=>{
-    const v=t.vars.find(x=>x.name===name);
-    return v ? resolvedValue(t,inst,v) : m;
-  });
+// Resolve ${vars} in a body. With skipMap (inline hoist mode): when a var's
+// resolved value matches the emitted substitution of the same name, the
+// literal ${name} is LEFT in place for ESPHome's own substitution pass —
+// per-instance overrides that differ still resolve textually.
+function substitute(body, t, inst, skipMap){
+  return body.split("\n").map(line=>{
+    const hadRef=/\$\{[^}]+\}/.test(line);
+    const out=line.replace(/\$\{([^}]+)\}/g, (m,name)=>{
+      const v=t.vars.find(x=>x.name===name);
+      if(!v) return m;
+      const val=resolvedValue(t,inst,v);
+      if(skipMap && (name in skipMap) && String(val)===String(skipMap[name])) return m;
+      return val;
+    });
+    // A ${ref} that WAS the whole value and resolved to "" would serialize as
+    // a bare `key:` = YAML null (breaks string options like comment:). Emit an
+    // explicit empty string instead. Bare component keys (logger:) never had a
+    // ref, so they are untouched.
+    if(hadRef && /^\s*[^#\s][^:]*: *$/.test(out)) return out.replace(/ *$/,' ""');
+    if(hadRef && /^\s*- *$/.test(out)) return out.replace(/ *$/,' ""');
+    return out;
+  }).join("\n");
 }
 // Block-scalar header at end of a line: `|`, `|-`, `|+`, `>`, `>-`, `>+`,
 // optionally with an indentation indicator digit (|2, >2-...).
@@ -765,14 +854,56 @@ function deviceInlineBody(plan){
   L.push("esp32:","  board: "+yamlScalar(b.board),"  framework:","    type: esp-idf");
   L.push("wifi:","  ssid: "+yamlScalar(d.ssid),"  password: "+yamlScalar(d.password));
   if(d.staticIp){
-    L.push("  manual_ip:",
-      "    static_ip: "+yamlScalar(d.ip),
-      "    gateway: "+yamlScalar(d.gateway),
-      "    subnet: "+yamlScalar(d.subnet),
-      "    dns1: "+yamlScalar(d.dns||d.gateway));
+    if(plan.hoist){
+      L.push("  manual_ip:",
+        "    static_ip: ${ip_address}",
+        "    gateway: ${gateway}",
+        "    subnet: ${subnet}",
+        "    dns1: ${dns_server}");
+    }else{
+      L.push("  manual_ip:",
+        "    static_ip: "+yamlScalar(d.ip),
+        "    gateway: "+yamlScalar(d.gateway),
+        "    subnet: "+yamlScalar(d.subnet),
+        "    dns1: "+yamlScalar(d.dns||d.gateway));
+    }
   }
   if(!plan.slugs.has("logger")) L.push("logger:");
   return L.join("\n");
+}
+// Inline mode: inject the chosen timezone directly into each merged time:
+// list item of a time-source platform that lacks the key (!extend semantics
+// outside packages are unproven, so the key is added on the parse tree).
+function injectTimezone(tree, plan){
+  const dev=plan.dev;
+  if(!dev||!dev.timezone) return;
+  const PLATS=new Set(["sntp","homeassistant","gps"]);
+  const timeEntry=((tree&&tree.entries)||[]).find(e=>e[0]==="time");
+  if(!timeEntry||timeEntry[1].kind!=="list") return;
+  const val=plan.hoist ? "${timezone}" : dev.timezone;
+  timeEntry[1].items.forEach(item=>{
+    if(item.kind!=="map") return;
+    const plat=item.entries.find(e=>e[0]==="platform");
+    if(!plat||plat[1].kind!=="scalar"||!PLATS.has(plat[1].value)) return;
+    if(item.entries.some(e=>e[0]==="timezone")) return;
+    item.entries.push(["timezone",{kind:"scalar",value:val}]);
+  });
+}
+// Shared knobs referenced by any body about to be merged, at their effective
+// (global-settings) values — inline hoist mode emits these as substitutions
+// and leaves the ${refs} in place.
+function inlineKnobRows(bodies){
+  const g=state.globals;
+  const eff={
+    st_update_interval: g.update_interval,
+    st_state_class: g.keep_stats ? LIB.st_state_class : "",
+    st_name_prefix: g.name_prefix,
+    st_disabled_by_default: g.disabled_by_default ? "true" : "false",
+    st_internal: "false",
+  };
+  return Object.keys(eff)
+    .filter(k=>bodies.some(b=>(b||"").includes("${"+k+"}")))
+    .map(k=>[k,eff[k]]);
 }
 // Synthetic device_base instance from the panel (inline mode resolves bodies
 // textually, so panel values are substituted directly).
@@ -792,29 +923,46 @@ function genInline(){
   const plan=buildPlan();
   const sel=plan.sel, dev=plan.dev;
   if(!sel.length && !dev) return "# Select one or more templates to generate YAML.";
-  const names=[];
+  const dbT=dev?templateBySlug(DEVICE_BASE_SLUG):null;
+  // Inline hoisting: emit the same substitutions block as the packages modes
+  // (plus every shared knob the merged bodies reference, at effective values)
+  // and leave matching ${refs} unresolved for ESPHome's substitution pass.
+  let subMap=null, subRows=null;
+  if(dev&&plan.hoist){
+    const bodies=(dbT?[dropDefaults(dbT.body||"")]:[])
+      .concat(sel.map(s=>dropDefaults(s.t.body||"")));
+    const r=buildSubLines(plan, inlineKnobRows(bodies));
+    subMap=r.map; subRows=r.rows;
+  }
+  const names=[], manifest=[];
   let tree=null;
   const mergeBody=(body)=>{ const node=parseTree(body); tree = tree ? mergeNodes(tree,node) : node; };
+  const note=(t,idx)=>{
+    names.push(t.slug);
+    let line="#   - "+t.title+(idx>0?" (instance "+(idx+1)+")":"")+" ("+t.slug+")";
+    if((t.entities||[]).length) line+=" - entities: "+t.entities.map(e=>e.domain+' "'+e.name+'"').join("; ");
+    manifest.push(line);
+  };
   if(dev){
     mergeBody(deviceInlineBody(plan));
-    const dbT=templateBySlug(DEVICE_BASE_SLUG);
     if(dbT){
-      names.push(DEVICE_BASE_SLUG);
-      mergeBody(substitute(dropDefaults(dbT.body||""), dbT, deviceBaseInstance(dbT)));
+      note(dbT,0);
+      mergeBody(substitute(dropDefaults(dbT.body||""), dbT, deviceBaseInstance(dbT), subMap));
     }
   }
   sel.forEach(s=>{
-    s.instances.forEach(inst=>{
-      names.push(s.t.slug);
+    s.instances.forEach((inst,idx)=>{
+      note(s.t,idx);
       // Panel network values win over the per-template editor in device mode.
       let vals=inst.vals;
       if(dev && s.t.slug==="time_sntp" && dev.ntpServer) vals=Object.assign({},vals,{st_ntp_server:dev.ntpServer});
       if(dev && s.t.slug==="captive_portal" && dev.apSsid) vals=Object.assign({},vals,{st_ap_ssid:dev.apSsid});
       let body=dropDefaults(s.t.body||"");
-      body=substitute(body, s.t, {vals});
+      body=substitute(body, s.t, {vals}, subMap);
       mergeBody(body);
     });
   });
+  if(dev && selectedTimeIds(plan.slugs).length) injectTimezone(tree, plan);
   let out=serialize(tree,0);
   out=extendWarnings(out);
   // YAML forbids duplicate top-level keys: sections every real config already
@@ -831,10 +979,14 @@ function genInline(){
   const devWarn=(dev && (!dev.name||!dev.friendly))
     ? "# WARNING: device name and friendly name are required - fill them in the Device panel.\n" : "";
   const reqWarn=missingRequiredWarnings(sel).join("\n");
-  const header="# Generated by ESPHome Sensor Templates builder — "+names.join(", ")
-    +"\n# Minimum ESPHome "+(state.catalog.min_esphome||"")+"\n"+warn+devWarn
+  const title=state.annotate
+    ? "# Generated by ESPHome Sensor Templates builder\n"+manifest.join("\n")+"\n"
+    : "# Generated by ESPHome Sensor Templates builder — "+names.join(", ")+"\n";
+  const header=title
+    +"# Minimum ESPHome "+(state.catalog.min_esphome||"")+"\n"+warn+devWarn
     +(reqWarn?reqWarn+"\n":"")+"\n";
-  return withSecretsFooter(header+out+"\n", !!dev);
+  const subsText=(subRows&&subRows.length) ? "substitutions:\n"+subRows.join("\n")+"\n\n" : "";
+  return withSecretsFooter(header+subsText+out+"\n", !!dev);
 }
 function currentYaml(){
   return state.tab==="remote" ? genRemote() : state.tab==="local" ? genLocal() : genInline();
@@ -1009,9 +1161,20 @@ function renderDevice(){
         +F("d-dns","DNS",d.dns,"(defaults to gateway)","")
         +'</div>';
     }
+    const tz=tzList();
+    const tzHint=browserTz();
+    let tzOpts='<option value=""'+(d.timezone===""&&!d.tzCustom?' selected':'')+'>(auto - from build machine)</option>';
+    tz.zones.forEach(z=>{
+      tzOpts+='<option value="'+eschtml(z)+'"'+(!d.tzCustom&&d.timezone===z?' selected':'')+'>'+eschtml(z)+'</option>';
+    });
+    if(!tz.full) tzOpts+='<option value="__other__"'+(d.tzCustom?' selected':'')+'>Other…</option>';
     h+='<div class="grid" style="margin-top:8px">'
       +F("d-ntp","NTP server",d.ntpServer,"","Used when core/time_sntp is selected")
       +F("d-ap","Fallback AP SSID",d.apSsid,"","Used when core/captive_portal is selected")
+      +'<div class="field"><label for="d-tz">Timezone</label><select id="d-tz">'+tzOpts+'</select>'
+      +(tzHint?'<div class="help" style="font-size:11.5px;color:var(--muted);margin-top:2px">Browser timezone: '+eschtml(tzHint)+'</div>':'')
+      +'</div>'
+      +(d.tzCustom?F("d-tz-other","IANA timezone",d.timezone,"Region/City",""):'')
       +'</div>'
       +'<div class="check" style="margin-top:10px"><input id="d-hoist" type="checkbox" '+(d.hoist?"checked":"")+'>'
       +'<label for="d-hoist" style="font-weight:400">Collect customizations into <code>substitutions:</code> (multi-device reuse)</label></div>';
@@ -1059,6 +1222,12 @@ function renderDevice(){
   bind("d-dns",e=>{ d.dns=e.target.value; renderOutput(); });
   bind("d-ntp",e=>{ d.ntpServer=e.target.value; renderOutput(); });
   bind("d-ap",e=>{ d.apSsid=e.target.value; renderOutput(); });
+  bind("d-tz",e=>{
+    if(e.target.value==="__other__"){ d.tzCustom=true; d.timezone=""; renderDevice(); }
+    else { d.tzCustom=false; d.timezone=e.target.value; }
+    renderAdvisor(); renderOutput();
+  },"onchange");
+  bind("d-tz-other",e=>{ d.timezone=e.target.value; renderAdvisor(); renderOutput(); });
   bind("d-hoist",e=>{ d.hoist=e.target.checked; renderOutput(); },"onchange");
 }
 
@@ -1081,11 +1250,14 @@ function renderSettings(){
       +'<span style="color:var(--muted)">(unchecked emits <code>st_state_class: ""</code>)</span></label></div>'
     +'<div class="check" style="margin-top:6px"><input id="g-disabled" type="checkbox" '+(g.disabled_by_default?"checked":"")+'>'
       +'<label for="g-disabled" style="font-weight:400">Entities disabled by default</label></div>'
+    +'<div class="check" style="margin-top:6px"><input id="g-annotate" type="checkbox" '+(state.annotate?"checked":"")+'>'
+      +'<label for="g-annotate" style="font-weight:400">Annotate output with template comments</label></div>'
   +'</div>';
   byId("g-interval").oninput=e=>{ g.update_interval=e.target.value; renderOutput(); };
   byId("g-prefix").oninput=e=>{ g.name_prefix=e.target.value; renderOutput(); };
   byId("g-stats").onchange=e=>{ g.keep_stats=e.target.checked; renderOutput(); };
   byId("g-disabled").onchange=e=>{ g.disabled_by_default=e.target.checked; renderOutput(); };
+  byId("g-annotate").onchange=e=>{ state.annotate=e.target.checked; renderOutput(); };
 }
 
 /* ============================================================================
@@ -1229,11 +1401,16 @@ function renderAdvisor(){
   const {missing, reminders}=requirementStatus();
   const d=state.device;
   const identMissing = d.enabled && (!d.name || !d.friendly);
-  if(!missing.length && !reminders.length && !identMissing){ box.className="advisor hidden"; box.innerHTML=""; return; }
+  const tzOrphan = d.enabled && d.timezone!=="" &&
+    selectedTimeIds(new Set(selection().map(s=>s.t.slug))).length===0;
+  if(!missing.length && !reminders.length && !identMissing && !tzOrphan){ box.className="advisor hidden"; box.innerHTML=""; return; }
   box.className="advisor";
   let html="";
   if(identMissing){
     html+="<strong>Device panel:</strong> device name and friendly name are required for a complete config.";
+  }
+  if(tzOrphan){
+    html+=(html?"<br>":"")+"<strong>Device panel:</strong> timezone set but no time source selected (add core/time_sntp, core/time_homeassistant, or presence/gps).";
   }
   if(missing.length){
     html+=(html?"<br>":"")+"<strong>Missing requirements:</strong> "+missing.map(eschtml).join(", ")+".";
@@ -1369,7 +1546,8 @@ if(typeof module!=="undefined"){ module.exports={
   yamlScalar, flowMap, dropDefaults, tokenize, parseTree, mergeNodes, serialize,
   substitute, extendWarnings, varInputKind, renderInstance, state,
   normalizeRequire, isMultiInstance, requirementStatus,
-  buildPlan, genRemote, genLocal, genInline, boardInfo, newInstance, BOARDS
+  buildPlan, genRemote, genLocal, genInline, boardInfo, newInstance, BOARDS,
+  buildSubLines, timezoneOverlay, injectTimezone, inlineKnobRows, selectedTimeIds, tzList
 }; }
 })();
 </script>
