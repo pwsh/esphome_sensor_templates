@@ -15,10 +15,15 @@
 # @note: restore_mode enum: RESTORE_DEFAULT_OFF, RESTORE_DEFAULT_ON, ALWAYS_OFF, ALWAYS_ON, RESTORE_INVERTED_DEFAULT_OFF, RESTORE_INVERTED_DEFAULT_ON, DISABLED. RESTORE_* variants read the last state from NVS (one flash write per change); ALWAYS_* never persist.
 # @note: This is a virtual flag - it drives nothing on its own. Read id(st_generic_switch).state in a lambda, or attach on_turn_on/on_turn_off actions via "switch: - id: !extend st_generic_switch".
 
-defaults:
+# Shared knobs live under substitutions: (not defaults:) so a single
+# main-config substitution overrides them across every included template;
+# per-include vars: still win for this file alone.
+substitutions:
   st_name_prefix: ""
   st_disabled_by_default: "false"
   st_internal: "false"
+
+defaults:
   st_switch_id: st_generic_switch
   st_switch_name: "Flag"
   st_switch_restore_mode: RESTORE_DEFAULT_OFF

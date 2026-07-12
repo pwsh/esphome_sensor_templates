@@ -13,7 +13,10 @@
 # @note: ESP32-C3/C6 have no PSRAM interface - this template is limited to esp32/s2/s3. Requires the psram: component (core/psram.yaml) configured AND PSRAM hardware present, otherwise the sensor reports 0.
 # @note: Shares the debug: hub with the other debug-based templates; dicts merge across packages and the last update_interval wins.
 
-defaults:
+# Shared knobs live under substitutions: (not defaults:) so a single
+# main-config substitution overrides them across every included template;
+# per-include vars: still win for this file alone.
+substitutions:
   st_update_interval: 60s
   st_name_prefix: ""
   st_disabled_by_default: "false"

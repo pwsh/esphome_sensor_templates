@@ -40,6 +40,7 @@ packages:
 | st_project_name | `pwsh.esphome_sensor_templates` | Project id in author_name.project_name (namespace.project) format |
 | st_project_version | `1.0.0` | Free-form project version string |
 | st_area | `""` | Home Assistant area name for this device as a plain string (empty = no area; see note) |
+| st_name_add_mac_suffix | `false` | Append the last 3 bytes of the MAC to the name - lets one config serve several physical devices |
 
 ## Notes
 

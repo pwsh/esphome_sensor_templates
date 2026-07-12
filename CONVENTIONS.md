@@ -39,13 +39,26 @@ Rules:
 
 ## Substitution variables
 
-- Every variable is declared in the file's `defaults:` block (NOT `substitutions:` — `defaults:` is
-  the package-template mechanism) and is prefixed `st_`.
-- Precedence (highest first): CLI `-s` → include `vars:` → user's top-level `substitutions:` →
-  the file's `defaults:`. Shared knob names are therefore deliberately identical across files so a
-  single top-level substitution overrides the whole library.
+All vars are prefixed `st_`. There are TWO declaration mechanisms with different semantics —
+verified empirically on 2026.6.5, do not trust older doc readings:
 
-### Shared knobs — declare ALL of these in every file's `defaults:` (same names, same defaults)
+- **`defaults:`** — resolved AT INCLUDE TIME, file-locally. A value here BEATS the user's
+  top-level `substitutions:` (only per-include `vars:` overrides it). Use for file-specific
+  vars and for deliberate deviations from a shared-knob standard value.
+- **`substitutions:`** — merged across all packages into the global substitution table; the
+  user's top-level `substitutions:` overrides it, and per-include `vars:` still wins for that
+  file alone (vars resolve at include time). Use for the shared knobs.
+
+Effective precedence: CLI `-s` → include `vars:` → file's `defaults:` → user's top-level
+`substitutions:` → file's `substitutions:`. A required var (absent from both blocks) is
+resolvable by any of them.
+
+### Shared knobs — declare in every file's `substitutions:` block, at EXACTLY these values
+
+Because package `substitutions:` blocks merge into one table, every file must use identical
+values — a deviation would leak to every other template (the generator enforces this). A file
+that intentionally deviates (e.g. factory_reset ships disabled) puts that knob in `defaults:`
+instead, accepting that it can then only be changed per-include via `vars:`.
 
 | Var | Default | Applied to |
 |---|---|---|

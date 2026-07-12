@@ -10,7 +10,10 @@
 # @var st_internal [false]: Hide the entity from HA/web entirely
 # @note: Enters deep sleep with no wake source configured - the device stops responding to WiFi/API/OTA. Only a physical reset button press or power cycle recovers it, so do not press this on a device you cannot reach.
 
-defaults:
+# Shared knobs live under substitutions: (not defaults:) so a single
+# main-config substitution overrides them across every included template;
+# per-include vars: still win for this file alone.
+substitutions:
   st_name_prefix: ""
   st_disabled_by_default: "false"
   st_internal: "false"

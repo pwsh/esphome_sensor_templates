@@ -19,10 +19,15 @@
 # @note: MULTI-INSTANCE - include this file more than once to get several RGB lights. Each extra include MUST override st_rgb_light_id, st_rgb_light_name AND all three pins; duplicate ids or shared pins are errors. Output ids are derived as ${st_rgb_light_id}_r/_g/_b, so overriding the light id keeps them unique.
 # @note: POWER CAP - st_rgb_max_power caps the duty cycle on every channel via the output max_power (0.8 = 80%). With all three channels at full duty a MOSFET-driven RGB strip can pull well past a 500 mA USB budget after only a handful of LEDs (~60 mA/LED at full white). Raise toward 1.0 only with an external supply.
 
-defaults:
+# Shared knobs live under substitutions: (not defaults:) so a single
+# main-config substitution overrides them across every included template;
+# per-include vars: still win for this file alone.
+substitutions:
   st_name_prefix: ""
   st_disabled_by_default: "false"
   st_internal: "false"
+
+defaults:
   st_rgb_light_id: st_rgb_light
   st_rgb_light_name: "RGB Light"
   st_rgb_frequency: 1000Hz

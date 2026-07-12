@@ -12,7 +12,10 @@
 # @note: No state_class is set - a fixed hardware size is not a measurement and needs no HA long-term statistics, so it deliberately does NOT honor the ${st_state_class} knob.
 # @note: Flash SPEED and mode are compile-time board settings and are not exposed at runtime; the debug component's device_info text sensor shows them in its summary string.
 
-defaults:
+# Shared knobs live under substitutions: (not defaults:) so a single
+# main-config substitution overrides them across every included template;
+# per-include vars: still win for this file alone.
+substitutions:
   st_name_prefix: ""
   st_disabled_by_default: "false"
   st_internal: "false"

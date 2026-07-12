@@ -14,12 +14,17 @@
 # @var st_sht3x_address [0x44] {0x44|0x45}: I2C address (0x44 ADDR->GND, 0x45 ADDR->VCC; SHT85 is 0x44 only)
 # @note: Requires the shared I2C bus - include core/i2c.yaml. The onboard heater is off by default; enable it via !extend (heater_enabled: true) only to clear condensation, as it skews readings.
 
-defaults:
+# Shared knobs live under substitutions: (not defaults:) so a single
+# main-config substitution overrides them across every included template;
+# per-include vars: still win for this file alone.
+substitutions:
   st_update_interval: 60s
   st_name_prefix: ""
   st_disabled_by_default: "false"
   st_internal: "false"
   st_state_class: measurement
+
+defaults:
   st_sht3x_i2c_id: st_i2c_bus
   st_sht3x_address: "0x44"
 

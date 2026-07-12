@@ -14,7 +14,10 @@
 # @note: The LD2450 uses a fixed 256000 baud UART (parity NONE, 1 stop bit); firmware V2.02.23090617 or later is required. Use hardware UART pins. ESP32 has 3 hardware UARTs, C3/C6 have 2 - one is usually taken by the logger (UART0).
 # @note: The LD2450 tracks up to 3 targets and supports zones. This preset keeps it light (presence + count). Add per-target position via the ld2450 sensor platform (target_1 x/y/speed/distance/angle, target_2..3), or zone counts, with ld2450_id: st_ld2450 - or !extend st_ld2450 for install/multi-target/tracking-mode config.
 
-defaults:
+# Shared knobs live under substitutions: (not defaults:) so a single
+# main-config substitution overrides them across every included template;
+# per-include vars: still win for this file alone.
+substitutions:
   st_name_prefix: ""
   st_disabled_by_default: "false"
   st_internal: "false"

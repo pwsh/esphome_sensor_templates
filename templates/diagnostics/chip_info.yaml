@@ -11,7 +11,10 @@
 # @note: Static per boot - update_interval is never and the value is published exactly once from on_boot at priority -100 (after sensors are set up).
 # @note: On IDF5 esp_chip_info_t.revision is encoded as major*100+minor, so it is split back into "major.minor" (e.g. 0.4). The features bitmask is decoded to a "/"-joined radio list (WiFi/BT/BLE/802.15.4).
 
-defaults:
+# Shared knobs live under substitutions: (not defaults:) so a single
+# main-config substitution overrides them across every included template;
+# per-include vars: still win for this file alone.
+substitutions:
   st_name_prefix: ""
   st_disabled_by_default: "false"
   st_internal: "false"

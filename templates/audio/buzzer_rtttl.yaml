@@ -17,10 +17,15 @@
 # @note: MULTI-INSTANCE - include this file more than once for several buzzers. Each extra include MUST override st_buzzer_id AND st_buzzer_pin (duplicate ids or shared pins are errors). The LEDC output id (${st_buzzer_id}_out) and test button id (${st_buzzer_id}_test) derive from st_buzzer_id, so overriding it keeps them unique too.
 # @note: rtttl.play (id ${st_buzzer_id}) is callable from any automation or from Home Assistant to play arbitrary RTTTL ringtones, not just the demo tune.
 
-defaults:
+# Shared knobs live under substitutions: (not defaults:) so a single
+# main-config substitution overrides them across every included template;
+# per-include vars: still win for this file alone.
+substitutions:
   st_name_prefix: ""
   st_disabled_by_default: "false"
   st_internal: "false"
+
+defaults:
   st_buzzer_id: st_buzzer
   st_buzzer_name: "Buzzer"
   st_buzzer_gain: "50%"

@@ -17,10 +17,15 @@
 # @note: The demo button sends a NEC frame via remote_transmitter.transmit_nec. Learn your real codes with ir_receiver.yaml (they print to the log), then set st_ir_test_address / st_ir_test_command, or add more buttons via !extend using transmit_nec / transmit_sony / transmit_raw / transmit_pronto.
 # @note: An ESP32 GPIO sources only ~20 mA; for usable range drive the IR LED through a transistor/MOSFET rather than directly off the pin.
 
-defaults:
+# Shared knobs live under substitutions: (not defaults:) so a single
+# main-config substitution overrides them across every included template;
+# per-include vars: still win for this file alone.
+substitutions:
   st_name_prefix: ""
   st_disabled_by_default: "false"
   st_internal: "false"
+
+defaults:
   st_ir_tx_id: st_ir_tx
   st_ir_tx_name: "IR Test"
   st_ir_test_address: "0x1234"

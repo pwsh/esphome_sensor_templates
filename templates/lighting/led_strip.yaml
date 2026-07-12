@@ -22,10 +22,15 @@
 # @note: Effects are compiled in but cost nothing until activated from HA - the curated list below is free to keep.
 # @note: rmt_symbols / use_dma are optional RMT tuning knobs; the defaults are fine for typical strips on ESP-IDF, so they are omitted here.
 
-defaults:
+# Shared knobs live under substitutions: (not defaults:) so a single
+# main-config substitution overrides them across every included template;
+# per-include vars: still win for this file alone.
+substitutions:
   st_name_prefix: ""
   st_disabled_by_default: "false"
   st_internal: "false"
+
+defaults:
   st_led_strip_id: st_led_strip
   st_led_strip_name: "LED Strip"
   st_num_leds: "30"

@@ -19,10 +19,15 @@
 # @note: This template hardcodes its own i2c bus (SCCB) on GPIO26/27 with scan:false - it is the camera's dedicated control bus, not the shared core/i2c.yaml bus.
 # @note: On the AI-Thinker board GPIO0 (external clock) is also the boot/flash-mode strap and GPIO16 is wired to PSRAM - do not repurpose them.
 
-defaults:
+# Shared knobs live under substitutions: (not defaults:) so a single
+# main-config substitution overrides them across every included template;
+# per-include vars: still win for this file alone.
+substitutions:
   st_name_prefix: ""
   st_disabled_by_default: "false"
   st_internal: "false"
+
+defaults:
   st_camera_name: "Camera"
   st_camera_resolution: 800x600
   st_camera_jpeg_quality: "10"

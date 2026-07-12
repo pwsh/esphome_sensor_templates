@@ -143,13 +143,13 @@ def parse_requires(val):
     return val.split(", ")
 
 
-def parse_defaults_keys(body):
-    """Minimal indent-based scan of the 'defaults:' block (no PyYAML)."""
+def _scan_block_keys(body, block_name):
+    """Minimal indent-based scan of a top-level block's st_ keys (no PyYAML)."""
     keys = []
     in_block = False
     for line in body.splitlines():
         if not in_block:
-            if line.rstrip() == "defaults:":
+            if line.rstrip() == f"{block_name}:":
                 in_block = True
             continue
         if line.strip() == "":
@@ -162,6 +162,43 @@ def parse_defaults_keys(body):
         if m:
             keys.append(m.group(1))
     return keys
+
+
+# Shared knobs live in each file's substitutions: block at these EXACT values
+# (they merge across packages, so any deviation would leak to other templates).
+SHARED_KNOB_VALUES = {
+    "st_update_interval": "60s",
+    "st_name_prefix": '""',
+    "st_disabled_by_default": '"false"',
+    "st_internal": '"false"',
+    "st_state_class": "measurement",
+}
+
+
+def parse_defaults_keys(body):
+    """Var-declaring keys: the union of defaults: and substitutions: blocks."""
+    return _scan_block_keys(body, "defaults") + _scan_block_keys(body, "substitutions")
+
+
+def check_shared_knob_values(body, rel):
+    """Substitutions-block shared knobs must hold the standard values."""
+    errors = []
+    in_block = False
+    for line in body.splitlines():
+        if not in_block:
+            if line.rstrip() == "substitutions:":
+                in_block = True
+            continue
+        if line.strip() == "" or not line[:1].isspace():
+            break
+        m = re.match(r"^  (st_\w+): (.*)$", line.rstrip())
+        if m and m.group(1) in SHARED_KNOB_VALUES:
+            if m.group(2) != SHARED_KNOB_VALUES[m.group(1)]:
+                errors.append(
+                    f"{rel}: substitutions: {m.group(1)} is {m.group(2)!r}, must be "
+                    f"{SHARED_KNOB_VALUES[m.group(1)]!r} (merged globally - deviations "
+                    f"belong in defaults:)")
+    return errors
 
 
 def parse_file(path):
@@ -254,6 +291,7 @@ def validate(entries):
         required = {v["name"] for v in e["vars"] if v["required"]}
         for k in sorted(required & def_set):
             errors.append(f"{rel}: required @var '{k}' must not appear in defaults:")
+        errors.extend(check_shared_knob_values(e["body"], rel))
 
     # global id uniqueness (regex across raw file bodies)
     id_owners = {}

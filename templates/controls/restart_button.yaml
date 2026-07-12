@@ -10,7 +10,10 @@
 # @var st_internal [false]: Hide the entity from HA/web entirely
 # @note: A plain restart re-applies the full config on next boot; use safe_mode_button.yaml instead if a broken config is preventing a normal boot.
 
-defaults:
+# Shared knobs live under substitutions: (not defaults:) so a single
+# main-config substitution overrides them across every included template;
+# per-include vars: still win for this file alone.
+substitutions:
   st_name_prefix: ""
   st_disabled_by_default: "false"
   st_internal: "false"

@@ -11,7 +11,10 @@
 # @var st_internal [false]: Hide the entity from HA/web entirely
 # @note: OTA never updates the partition table. A device first flashed with an old ESPHome may still run a 20 kB NVS even though current ESPHome allocates 448 kB - only a wired flash replaces the table.
 
-defaults:
+# Shared knobs live under substitutions: (not defaults:) so a single
+# main-config substitution overrides them across every included template;
+# per-include vars: still win for this file alone.
+substitutions:
   st_update_interval: 60s
   st_name_prefix: ""
   st_disabled_by_default: "false"

@@ -15,12 +15,17 @@
 # @note: A 4.7kΩ pull-up between DATA and 3.3V is required.
 # @note: This preset assumes ONE sensor on the bus (no address needed - it auto-selects the single device). For multiple DS18B20s on one bus, give each its own address via !extend st_ds18b20_temperature (address: 0x...) and add more dallas_temp sensors on the same st_ds18b20_one_wire bus. Run once with logs to read the discovered addresses.
 
-defaults:
+# Shared knobs live under substitutions: (not defaults:) so a single
+# main-config substitution overrides them across every included template;
+# per-include vars: still win for this file alone.
+substitutions:
   st_update_interval: 60s
   st_name_prefix: ""
   st_disabled_by_default: "false"
   st_internal: "false"
   st_state_class: measurement
+
+defaults:
   st_ds18b20_resolution: "12"
 
 # Dedicated 1-Wire bus - the modern replacement for the removed `dallas:` platform.

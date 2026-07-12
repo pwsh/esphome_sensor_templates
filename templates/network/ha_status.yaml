@@ -11,7 +11,10 @@
 # @note: Reports native-API/MQTT connection state (HA reachability), not raw WiFi association - it complements wifi_signal rather than duplicating it.
 # @note: No update_interval var - the status component polls its connection internally (1s); that cadence is by design and not tunable here.
 
-defaults:
+# Shared knobs live under substitutions: (not defaults:) so a single
+# main-config substitution overrides them across every included template;
+# per-include vars: still win for this file alone.
+substitutions:
   st_name_prefix: ""
   st_disabled_by_default: "false"
   st_internal: "false"

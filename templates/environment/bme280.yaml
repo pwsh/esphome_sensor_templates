@@ -15,12 +15,17 @@
 # @note: Requires the shared I2C bus - include core/i2c.yaml. Sub-sensors keep the component default 16x oversampling; override via !extend for lower power.
 # @note: A BMP280 (no humidity) is a different chip - use the bmp280_i2c platform instead. A "BME280" that reports 0% humidity is usually a mislabelled BMP280.
 
-defaults:
+# Shared knobs live under substitutions: (not defaults:) so a single
+# main-config substitution overrides them across every included template;
+# per-include vars: still win for this file alone.
+substitutions:
   st_update_interval: 60s
   st_name_prefix: ""
   st_disabled_by_default: "false"
   st_internal: "false"
   st_state_class: measurement
+
+defaults:
   st_bme280_i2c_id: st_i2c_bus
   st_bme280_address: "0x76"
 

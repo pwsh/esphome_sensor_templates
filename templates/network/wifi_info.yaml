@@ -11,7 +11,10 @@
 # @note: wifi_info is event-driven (values refresh on association change), so there is no update_interval to tune.
 # @note: scan_results is deliberately omitted - it is expensive. Add it with `!extend st_wifi_info_ip` ... or a separate wifi_info block if you need it.
 
-defaults:
+# Shared knobs live under substitutions: (not defaults:) so a single
+# main-config substitution overrides them across every included template;
+# per-include vars: still win for this file alone.
+substitutions:
   st_name_prefix: ""
   st_disabled_by_default: "false"
   st_internal: "false"

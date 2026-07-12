@@ -11,10 +11,15 @@
 # @var st_version_hide_timestamp [false]: "true" drops the compile timestamp and shows just the version string (C++ literal)
 # @note: The value is fixed at compile time, so it only changes on a rebuild/OTA.
 
-defaults:
+# Shared knobs live under substitutions: (not defaults:) so a single
+# main-config substitution overrides them across every included template;
+# per-include vars: still win for this file alone.
+substitutions:
   st_name_prefix: ""
   st_disabled_by_default: "false"
   st_internal: "false"
+
+defaults:
   st_version_hide_timestamp: "false"
 
 text_sensor:

@@ -22,10 +22,15 @@
 # @note: POWER CAP - st_rgbw_max_power caps the duty cycle on every channel via the output max_power (0.8 = 80%). st_rgbw_color_interlock defaults to true: it forbids the RGB and white channels being lit simultaneously, roughly halving the worst-case current draw - an important part of the USB power story. Raise the cap toward 1.0 only with an external supply.
 # @note: ESPHome's own default for color_interlock is false; this template flips it to true on purpose for power safety. Set it back to "false" if you want RGB+W mixing and have the supply for it.
 
-defaults:
+# Shared knobs live under substitutions: (not defaults:) so a single
+# main-config substitution overrides them across every included template;
+# per-include vars: still win for this file alone.
+substitutions:
   st_name_prefix: ""
   st_disabled_by_default: "false"
   st_internal: "false"
+
+defaults:
   st_rgbw_light_id: st_rgbw_light
   st_rgbw_light_name: "RGBW Light"
   st_rgbw_frequency: 1000Hz

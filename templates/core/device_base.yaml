@@ -11,6 +11,7 @@
 # @var st_project_name [pwsh.esphome_sensor_templates]: Project id in author_name.project_name (namespace.project) format
 # @var st_project_version [1.0.0]: Free-form project version string
 # @var st_area []: Home Assistant area name for this device as a plain string (empty = no area; see note)
+# @var st_name_add_mac_suffix [false]: Append the last 3 bytes of the MAC to the name - lets one config serve several physical devices
 # @note: This file IS your esphome: block. Include it INSTEAD of writing your own esphome: name/friendly_name. Your top-level config must NOT declare esphome: name - put the board under esp32:, and let the whole identity block come from this package (top-level keys deep-merge, so a second esphome: name would clobber this one).
 # @note: project.name MUST be author_name.project_name (namespace.project) - a bare word without a dot fails validation. The version is any string.
 # @note: area takes a plain string here. For the structured areas/sub-devices form (esphome: area: {id, name} plus a top-level areas:/devices: list) add that at your top level - it deep-merges with this block.
@@ -20,6 +21,7 @@ defaults:
   st_project_name: pwsh.esphome_sensor_templates
   st_project_version: 1.0.0
   st_area: ""
+  st_name_add_mac_suffix: "false"
 
 esphome:
   # name/friendly_name are required vars - no defaults. The user supplies them
@@ -30,6 +32,7 @@ esphome:
   friendly_name: ${st_friendly_name}
   comment: ${st_device_comment}
   area: ${st_area}
+  name_add_mac_suffix: ${st_name_add_mac_suffix}
   project:
     name: ${st_project_name}
     version: ${st_project_version}

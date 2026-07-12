@@ -18,10 +18,15 @@
 # @note: POWER CAP - st_pwm_max_power caps the LEDC duty cycle via the output max_power (0.8 = 80% of full brightness). For a single onboard LED this is just headroom, but for a MOSFET-driven single-color strip it is the real current limiter: size the cap to your supply. A short WS2812-equivalent single-color run at ~60 mA/LED will exceed a 500 mA USB budget past ~5-8 LEDs at full duty. Raise toward 1.0 only with an external supply.
 # @note: LEDC has no per-platform max_power key; max_power is a base float-output option and is the correct place to cap duty.
 
-defaults:
+# Shared knobs live under substitutions: (not defaults:) so a single
+# main-config substitution overrides them across every included template;
+# per-include vars: still win for this file alone.
+substitutions:
   st_name_prefix: ""
   st_disabled_by_default: "false"
   st_internal: "false"
+
+defaults:
   st_pwm_light_id: st_pwm_light
   st_pwm_light_name: "PWM Light"
   st_pwm_frequency: 1000Hz

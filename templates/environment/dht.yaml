@@ -15,12 +15,17 @@
 # @note: DHT22/AM2302 need at least 2s between reads - do not set st_update_interval below 2s.
 # @note: A 4.7kΩ-10kΩ pull-up between DATA and 3.3V is required. Bare-module boards with an onboard pull-up need pin: { number: X, pullup: false } via !extend st_dht_temperature's parent - or wire your own.
 
-defaults:
+# Shared knobs live under substitutions: (not defaults:) so a single
+# main-config substitution overrides them across every included template;
+# per-include vars: still win for this file alone.
+substitutions:
   st_update_interval: 60s
   st_name_prefix: ""
   st_disabled_by_default: "false"
   st_internal: "false"
   st_state_class: measurement
+
+defaults:
   st_dht_model: DHT22
 
 sensor:

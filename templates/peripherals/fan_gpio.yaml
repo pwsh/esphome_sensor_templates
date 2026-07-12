@@ -14,10 +14,15 @@
 # @note: MULTI-INSTANCE - include more than once for several fans. Each extra include MUST override st_fan_gpio_id, st_fan_gpio_name AND st_fan_gpio_pin; duplicate ids or shared pins are errors. The GPIO output id is derived as ${st_fan_gpio_id}_out.
 # @note: Size the relay/MOSFET for the fan's stall current, not its running current. A DC fan is an inductive load - add a flyback diode across the fan (or use a relay module with one built in) so the back-EMF spike does not destroy the switching device. For a bare MOSFET, use a logic-level part switching the fan's ground.
 
-defaults:
+# Shared knobs live under substitutions: (not defaults:) so a single
+# main-config substitution overrides them across every included template;
+# per-include vars: still win for this file alone.
+substitutions:
   st_name_prefix: ""
   st_disabled_by_default: "false"
   st_internal: "false"
+
+defaults:
   st_fan_gpio_id: st_fan_gpio
   st_fan_gpio_name: "Fan"
 

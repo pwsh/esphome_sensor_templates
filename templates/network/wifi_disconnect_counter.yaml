@@ -13,7 +13,10 @@
 # @note: This file's wifi: block merges into the user's wifi config - on_disconnect lists concatenate, so the user's own on_disconnect still runs.
 # @note: Counts since boot; restore_value is false to avoid NVS wear. For a lifetime count across reboots, `!extend st_wifi_disconnects_value` and set restore_value: true.
 
-defaults:
+# Shared knobs live under substitutions: (not defaults:) so a single
+# main-config substitution overrides them across every included template;
+# per-include vars: still win for this file alone.
+substitutions:
   st_update_interval: 60s
   st_name_prefix: ""
   st_disabled_by_default: "false"

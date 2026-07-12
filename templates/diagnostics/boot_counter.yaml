@@ -11,7 +11,10 @@
 # @note: One NVS write per boot (restore_value) - negligible flash wear. The count survives reboots and OTA but NOT a factory_reset or a wired flash-erase.
 # @note: This is a counter - state_class is hardcoded total_increasing and does NOT honor the ${st_state_class} knob. There is no update_interval: the value is published once from on_boot.
 
-defaults:
+# Shared knobs live under substitutions: (not defaults:) so a single
+# main-config substitution overrides them across every included template;
+# per-include vars: still win for this file alone.
+substitutions:
   st_name_prefix: ""
   st_disabled_by_default: "false"
   st_internal: "false"

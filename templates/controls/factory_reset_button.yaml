@@ -11,11 +11,16 @@
 # @note: IRREVERSIBLE. Erases all stored preferences - WiFi credentials, restore_value globals (e.g. boot counter), and improv/captive-portal provisioning - and returns the device to a fresh-flash state. It will not reconnect until re-provisioned.
 # @note: Ships disabled_by_default: true (unlike the rest of the library) so an accidental tap cannot wipe the device; the user must deliberately enable it in HA.
 
-defaults:
+# Shared knobs live under substitutions: (not defaults:) so a single
+# main-config substitution overrides them across every included template;
+# per-include vars: still win for this file alone.
+substitutions:
   st_name_prefix: ""
+  st_internal: "false"
+
+defaults:
   # Override of the shared default: this control is destructive, so it ships disabled in HA.
   st_disabled_by_default: "true"
-  st_internal: "false"
 
 button:
   - platform: factory_reset

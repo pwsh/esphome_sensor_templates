@@ -14,7 +14,10 @@
 # @note: The LD2410 uses a fixed 256000 baud UART (parity NONE, 1 stop bit). Use hardware UART pins. ESP32 has 3 hardware UARTs, S2/S3 have 2-3, C3/C6 have 2 - one is usually taken by the logger (UART0), so keep the logger on its default pins or drop its baud/hardware_uart if you run out.
 # @note: This preset exposes only the core presence readings. The full tuning surface - per-gate move/still sensitivity, detection timeout, bluetooth, engineering mode, calibration buttons - is available by adding the ld2410 number:/select:/switch:/button: platforms with ld2410_id: st_ld2410, or by !extend st_ld2410.
 
-defaults:
+# Shared knobs live under substitutions: (not defaults:) so a single
+# main-config substitution overrides them across every included template;
+# per-include vars: still win for this file alone.
+substitutions:
   st_name_prefix: ""
   st_disabled_by_default: "false"
   st_internal: "false"

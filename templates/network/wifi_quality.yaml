@@ -5,14 +5,17 @@
 # @platforms: esp32, esp32s2, esp32s3, esp32c3, esp32c6
 # @requires: wifi
 # @entities: text_sensor "WiFi Quality"
-# @var st_update_interval [30s]: How often to sample RSSI and refresh the rating
+# @var st_update_interval [60s]: How often to sample RSSI and refresh the rating
 # @var st_name_prefix []: Prefix prepended to the entity name
 # @var st_disabled_by_default [false]: Ship the entity disabled in HA
 # @var st_internal [false]: Hide the entity from HA/web entirely
 # @note: Includes a hidden wifi_signal sensor (st_wifi_quality_rssi). Including wifi_signal.yaml as well adds a second, independent RSSI read - harmless, but the dBm entity lives there.
 
-defaults:
-  st_update_interval: 30s
+# Shared knobs live under substitutions: (not defaults:) so a single
+# main-config substitution overrides them across every included template;
+# per-include vars: still win for this file alone.
+substitutions:
+  st_update_interval: 60s
   st_name_prefix: ""
   st_disabled_by_default: "false"
   st_internal: "false"

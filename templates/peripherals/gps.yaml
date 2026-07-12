@@ -16,7 +16,10 @@
 # @note: This ships a "time: - platform: gps" source (id st_time_gps). It does NOT collide with core/time_sntp.yaml or time_homeassistant.yaml (different platforms) but they are separate time sources - avoid including several unless you intend it. GPS time only becomes valid once the module has a fix.
 # @note: Latitude/longitude report NaN and satellites/hdop stay flat until the module gets a fix - a cold start outdoors can take minutes.
 
-defaults:
+# Shared knobs live under substitutions: (not defaults:) so a single
+# main-config substitution overrides them across every included template;
+# per-include vars: still win for this file alone.
+substitutions:
   st_update_interval: 60s
   st_name_prefix: ""
   st_disabled_by_default: "false"

@@ -15,10 +15,15 @@
 # @note: microWakeWord runs a TensorFlow-Lite-Micro model and is memory hungry - an ESP32-S3 with PSRAM is the recommended target. It will validate on plain ESP32/C3/C6 but may not have the RAM to run reliably.
 # @note: stop_after_detection is set false so the detector keeps listening (and the binary sensor keeps pulsing) without a voice_assistant to restart it.
 
-defaults:
+# Shared knobs live under substitutions: (not defaults:) so a single
+# main-config substitution overrides them across every included template;
+# per-include vars: still win for this file alone.
+substitutions:
   st_name_prefix: ""
   st_disabled_by_default: "false"
   st_internal: "false"
+
+defaults:
   st_wake_word_model: okay_nabu
   st_mww_microphone_id: st_microphone
 

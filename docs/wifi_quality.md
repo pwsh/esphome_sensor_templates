@@ -20,7 +20,7 @@ Local include (repo checked out beside your config):
 packages:
   wifi_quality: !include
     file: esphome_sensor_templates/templates/network/wifi_quality.yaml
-    vars: { st_update_interval: 30s }
+    vars: { st_update_interval: 60s }
 ```
 
 Remote include (pulled straight from GitHub):
@@ -36,7 +36,7 @@ packages:
 
 | Variable | Default | Description |
 |---|---|---|
-| st_update_interval | `30s` | How often to sample RSSI and refresh the rating |
+| st_update_interval | `60s` | How often to sample RSSI and refresh the rating |
 | st_name_prefix | `""` | Prefix prepended to the entity name |
 | st_disabled_by_default | `false` | Ship the entity disabled in HA |
 | st_internal | `false` | Hide the entity from HA/web entirely |

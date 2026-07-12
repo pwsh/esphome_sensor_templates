@@ -19,10 +19,15 @@
 # @note: On a template select, restore_value is INCOMPATIBLE with a lambda, so this template uses optimistic:true (the entity holds its own state) and no lambda.
 # @note: restore_value:true writes to NVS on every change (one flash write per change) - NVS flash has limited write endurance.
 
-defaults:
+# Shared knobs live under substitutions: (not defaults:) so a single
+# main-config substitution overrides them across every included template;
+# per-include vars: still win for this file alone.
+substitutions:
   st_name_prefix: ""
   st_disabled_by_default: "false"
   st_internal: "false"
+
+defaults:
   st_select_id: st_generic_select
   st_select_name: "Mode"
   # List-valued substitution: users override by passing their own YAML list.
