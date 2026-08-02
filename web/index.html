@@ -301,10 +301,21 @@ function applicableValue(v){
   }
 }
 // Per-instance overrides for the packages modes.
+// Pin-type vars (_pin/_sda/_scl suffix) accept bare numbers in the editor;
+// normalize so "21", "gpio21" and "GPIO21" all emit GPIO21 in the output.
+const PIN_VAR_RE=/(_pin|_sda|_scl)$/;
+function normalizeVarValue(v, val){
+  if(typeof val!=="string" || !PIN_VAR_RE.test(v.name)) return val;
+  const t=val.trim();
+  if(/^\d+$/.test(t)) return "GPIO"+t;
+  const m=t.match(/^gpio(\d+)$/i);
+  if(m) return "GPIO"+m[1];
+  return val;
+}
 function overridesFor(t, inst){
   const ov={};
   t.vars.forEach(v=>{
-    const cur=inst.vals[v.name];
+    const cur=normalizeVarValue(v, inst.vals[v.name]);
     if(cur==="") return;                 // never emit an empty override
     if(cur!==applicableValue(v)) ov[v.name]=cur;
   });
@@ -313,7 +324,7 @@ function overridesFor(t, inst){
 // Fully resolved value for inline mode.
 function resolvedValue(t, inst, v){
   const cur=inst.vals[v.name];
-  return cur===v.default ? applicableValue(v) : cur;
+  return normalizeVarValue(v, cur===v.default ? applicableValue(v) : cur);
 }
 
 /* ============================================================================
