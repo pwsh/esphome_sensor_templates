@@ -89,6 +89,7 @@ packages:
   env_aht20: !include
     file: ../templates/environment/aht20.yaml
     vars: { st_name_prefix: "AHT20 " }
+  env_bh1750: !include ../templates/environment/bh1750.yaml
   env_dht: !include
     file: ../templates/environment/dht.yaml
     vars: { st_dht_pin: GPIO40, st_name_prefix: "DHT " }

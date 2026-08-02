@@ -1,6 +1,6 @@
 # ESPHome Sensor Templates
 
-74 reusable, standalone ESPHome template files for ESP32-family devices (ESP-IDF framework),
+75 reusable, standalone ESPHome template files for ESP32-family devices (ESP-IDF framework),
 plus a point-and-click **[config builder](https://pwsh.github.io/esphome_sensor_templates/)**.
 Each template is a self-contained [package](https://esphome.io/components/packages/): include one
 file, get a working, documented feature with sensible defaults — customize per sensor via
@@ -10,7 +10,7 @@ file, get a working, documented feature with sensible defaults — customize per
 ESP32-C6 (the builder also offers C2/C5/C61/H2/P4, marked unaudited).
 
 **Categories:** core (14) · diagnostics (16) · network (7) · lighting (5) · audio (4) ·
-environment (5) · presence (2) · bluetooth (2) · remote (4) · peripherals (4) · controls (6) ·
+environment (6) · presence (2) · bluetooth (2) · remote (4) · peripherals (4) · controls (6) ·
 inputs (5) — full index below, one doc page per template in [docs/](docs/).
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for how the system fits together and
@@ -141,6 +141,7 @@ Set any of these once in your top-level `substitutions:` to affect every include
 | Template | Description | Entities |
 |---|---|---|
 | [AHT20 Temperature & Humidity](docs/aht20.md) | Reads temperature and humidity from an Aosong AHT10/AHT20/AHT30 over I2C. Shares the library I2C bus. | 2 |
+| [BH1750 Luminance](docs/bh1750.md) | Reads ambient light (illuminance, lux) from a ROHM BH1750 over I2C. Shares the library I2C bus. | 1 |
 | [BME280 Temperature / Humidity / Pressure](docs/bme280.md) | Reads temperature, humidity and barometric pressure from a Bosch BME280 over I2C. Shares the library I2C bus. | 3 |
 | [DHT Temperature & Humidity](docs/dht.md) | Reads temperature and humidity from a DHT11/DHT22/AM2302/RHT03 single-wire sensor. Exposes both readings as primary sensors. | 2 |
 | [DS18B20 Temperature](docs/ds18b20.md) | Reads a Dallas DS18B20 temperature sensor over a dedicated 1-Wire bus. Owns its one_wire: bus (the only template that uses it). | 1 |

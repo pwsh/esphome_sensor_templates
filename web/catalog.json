@@ -2351,6 +2351,89 @@
       "body": "substitutions:\n  st_update_interval: 60s\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n  st_state_class: measurement\n\ndefaults:\n  st_aht20_i2c_id: st_i2c_bus\n  st_aht20_variant: AHT20\n\nsensor:\n  - platform: aht10\n    i2c_id: ${st_aht20_i2c_id}\n    variant: ${st_aht20_variant}\n    update_interval: ${st_update_interval}\n    temperature:\n      id: st_aht20_temperature\n      name: \"${st_name_prefix}Temperature\"\n      device_class: temperature\n      unit_of_measurement: \"°C\"\n      accuracy_decimals: 1\n      state_class: \"${st_state_class}\"\n      disabled_by_default: ${st_disabled_by_default}\n      internal: ${st_internal}\n    humidity:\n      id: st_aht20_humidity\n      name: \"${st_name_prefix}Humidity\"\n      device_class: humidity\n      unit_of_measurement: \"%\"\n      accuracy_decimals: 1\n      state_class: \"${st_state_class}\"\n      disabled_by_default: ${st_disabled_by_default}\n      internal: ${st_internal}\n"
     },
     {
+      "slug": "bh1750",
+      "title": "BH1750 Luminance",
+      "category": "environment",
+      "description": "Reads ambient light (illuminance, lux) from a ROHM BH1750 over I2C. Shares the library I2C bus.",
+      "platforms": [
+        "esp32",
+        "esp32s2",
+        "esp32s3",
+        "esp32c3",
+        "esp32c6"
+      ],
+      "requires": [
+        "i2c"
+      ],
+      "entities": [
+        {
+          "domain": "sensor",
+          "name": "Illuminance"
+        }
+      ],
+      "vars": [
+        {
+          "name": "st_update_interval",
+          "default": "60s",
+          "required": false,
+          "secret": false,
+          "description": "How often to sample the sensor"
+        },
+        {
+          "name": "st_name_prefix",
+          "default": "",
+          "required": false,
+          "secret": false,
+          "description": "Prefix prepended to the entity name"
+        },
+        {
+          "name": "st_disabled_by_default",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Ship the entity disabled in HA"
+        },
+        {
+          "name": "st_internal",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Hide the entity from HA/web entirely"
+        },
+        {
+          "name": "st_state_class",
+          "default": "measurement",
+          "required": false,
+          "secret": false,
+          "description": "state_class for the reading; set \"\" to opt out of HA long-term statistics"
+        },
+        {
+          "name": "st_bh1750_i2c_id",
+          "default": "st_i2c_bus",
+          "required": false,
+          "secret": false,
+          "description": "id of the I2C bus to use (from core/i2c.yaml)"
+        },
+        {
+          "name": "st_bh1750_address",
+          "default": "0x23",
+          "required": false,
+          "secret": false,
+          "description": "I2C address (0x23 ADDR->GND/floating, 0x5C ADDR->VCC)",
+          "choices": [
+            "0x23",
+            "0x5C"
+          ]
+        }
+      ],
+      "notes": [
+        "Requires the shared I2C bus - include core/i2c.yaml. The component picks measurement resolution automatically based on light level.",
+        "Common breakout is the GY-302. Range roughly 1-65535 lx; direct sunlight saturates the high end."
+      ],
+      "path": "templates/environment/bh1750.yaml",
+      "body": "substitutions:\n  st_update_interval: 60s\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n  st_state_class: measurement\n\ndefaults:\n  st_bh1750_i2c_id: st_i2c_bus\n  st_bh1750_address: \"0x23\"\n\nsensor:\n  - platform: bh1750\n    id: st_bh1750_illuminance\n    name: \"${st_name_prefix}Illuminance\"\n    i2c_id: ${st_bh1750_i2c_id}\n    address: ${st_bh1750_address}\n    update_interval: ${st_update_interval}\n    device_class: illuminance\n    unit_of_measurement: lx\n    accuracy_decimals: 1\n    state_class: \"${st_state_class}\"\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n    icon: mdi:brightness-5\n"
+    },
+    {
       "slug": "bme280",
       "title": "BME280 Temperature / Humidity / Pressure",
       "category": "environment",

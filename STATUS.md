@@ -4,8 +4,8 @@ _Last updated: 2026-07-11 (ESPHome 2026.6.5)._
 
 ## What exists
 
-- **74 templates** across **12 categories** (counts from the generated catalog):
-  core 14 · diagnostics 16 · network 7 · lighting 5 · audio 4 · environment 5 · presence 2 ·
+- **75 templates** across **12 categories** (counts from the generated catalog):
+  core 14 · diagnostics 16 · network 7 · lighting 5 · audio 4 · environment 6 · presence 2 ·
   bluetooth 2 · remote 4 · peripherals 4 · controls 6 · inputs 5.
 - **Web config builder** at <https://pwsh.github.io/esphome_sensor_templates/> — board/variant
   picker (all 10 ESP32 variants), device identity + network + timezone panel, per-template
