@@ -52,3 +52,4 @@ packages:
 
 - MULTI-INSTANCE - include this file more than once to get several RGB lights. Each extra include MUST override st_rgb_light_id, st_rgb_light_name AND all three pins; duplicate ids or shared pins are errors. Output ids are derived as ${st_rgb_light_id}_r/_g/_b, so overriding the light id keeps them unique.
 - POWER CAP - st_rgb_max_power caps the duty cycle on every channel via the output max_power (0.8 = 80%). With all three channels at full duty a MOSFET-driven RGB strip can pull well past a 500 mA USB budget after only a handful of LEDs (~60 mA/LED at full white). Raise toward 1.0 only with an external supply.
+- Effects are compiled in but cost nothing until activated from HA - an idle effect list adds only flash/RAM, no runtime work, so the curated list below is free to keep. The pulse effects modulate brightness only, so they keep whatever color is currently set.

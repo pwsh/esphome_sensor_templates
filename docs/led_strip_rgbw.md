@@ -53,4 +53,5 @@ packages:
 - Chipset is fixed to SK6812 (the common RGBW addressable part); is_rgbw:true enables the fourth white channel.
 - POWER CAP - each RGB LED draws ~60 mA at full white, and the dedicated white channel adds up to another ~20 mA/LED at full W. A 500 mA USB budget minus ~150 mA for the ESP32 leaves headroom for only ~5-8 LEDs at 100%. st_power_limit_rgbw defaults to 0.5 (color_correct halves all four channels). Raise it toward 1.0 ONLY with an injected power supply.
 - color_correct has 4 entries here (R, G, B, W) to match the RGBW pixel.
-- Effects are compiled in but cost nothing until activated - addressable effects work fine on RGBW strips.
+- Effects are compiled in but cost nothing until activated - an idle effect list adds only flash/RAM, no runtime work, and addressable effects work fine on RGBW strips.
+- The plain (non-addressable) pulse/random/strobe/flicker effects are valid on an addressable light too - they drive the whole strip as one uniform color. Slow Pulse and Slow Random below are exactly that; the addressable effects set RGB and leave the dedicated W channel dark.

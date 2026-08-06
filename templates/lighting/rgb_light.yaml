@@ -18,6 +18,7 @@
 # @var st_rgb_restore_mode [ALWAYS_OFF] {RESTORE_DEFAULT_OFF|RESTORE_DEFAULT_ON|ALWAYS_OFF|ALWAYS_ON|RESTORE_INVERTED_DEFAULT_OFF|RESTORE_INVERTED_DEFAULT_ON}: Boot behaviour (default ALWAYS_OFF to avoid a boot brown-out)
 # @note: MULTI-INSTANCE - include this file more than once to get several RGB lights. Each extra include MUST override st_rgb_light_id, st_rgb_light_name AND all three pins; duplicate ids or shared pins are errors. Output ids are derived as ${st_rgb_light_id}_r/_g/_b, so overriding the light id keeps them unique.
 # @note: POWER CAP - st_rgb_max_power caps the duty cycle on every channel via the output max_power (0.8 = 80%). With all three channels at full duty a MOSFET-driven RGB strip can pull well past a 500 mA USB budget after only a handful of LEDs (~60 mA/LED at full white). Raise toward 1.0 only with an external supply.
+# @note: Effects are compiled in but cost nothing until activated from HA - an idle effect list adds only flash/RAM, no runtime work, so the curated list below is free to keep. The pulse effects modulate brightness only, so they keep whatever color is currently set.
 
 # Shared knobs live under substitutions: (not defaults:) so a single
 # main-config substitution overrides them across every included template;
@@ -67,6 +68,20 @@ light:
           name: Slow Random
           transition_length: 5s
           update_interval: 7s
+      # Snappier color churn than Slow Random - transition is just under the
+      # update interval so a new color is picked as the previous fade lands.
+      - random:
+          name: Fast Random
+          transition_length: 750ms
+          update_interval: 800ms
+      # pulse is a brightness effect and works on any dimmable light, RGB
+      # included: it breathes the current color instead of the raw duty cycle.
+      - pulse:
+          name: Slow Pulse
+          transition_length: 1s
+          update_interval: 2s
+          min_brightness: 10%
+          max_brightness: 100%
       - strobe:
           name: Strobe
       - flicker:

@@ -1,0 +1,40 @@
+# @template: boot_color
+# @title: Boot Color (Power-On Color Choice)
+# @category: lighting
+# @description: Turns a light from this library on at a chosen color and brightness every time the device boots. Give any RGB(W) or addressable strip a fixed power-on look instead of coming up dark.
+# @platforms: esp32, esp32s2, esp32s3, esp32c3, esp32c6
+# @requires: none
+# @entities: none (boot automation only - drives a light another template owns)
+# @var st_boot_color_light_id [(required)]: id of the light to turn on at boot - one of st_led_strip, st_rgb_light, st_rgbw_light, st_led_strip_rgbw (or your own override of one of those id vars)
+# @var st_boot_color_r [100%]: RED channel level, percent
+# @var st_boot_color_g [100%]: GREEN channel level, percent
+# @var st_boot_color_b [100%]: BLUE channel level, percent
+# @var st_boot_color_brightness [60%]: Overall brightness of the boot color, percent
+# @note: PAIR THIS with one of the lighting templates - it declares no light of its own, it only drives one. Point st_boot_color_light_id at that template's light id: st_led_strip (led_strip), st_led_strip_rgbw (led_strip_rgbw), st_rgb_light (rgb_light), st_rgbw_light (rgbw_light). If you overrode the light-id var on that include, use the id you chose.
+# @note: BOOT PRIORITY 600 is deliberate. ESPHome sets components up in DESCENDING setup-priority order, and an on_boot entry is itself scheduled at its priority - so a lower number runs LATER. The light output components sit at HARDWARE (800) and light::LightState at HARDWARE-1 (799), while WiFi is at 250 and the API/MQTT at 200. Priority 600 therefore lands after every light component is fully set up but well before any network stack, so the color appears immediately at power-up and does NOT wait for (or depend on) WiFi. Priority 800 would be wrong: it can run before LightState::setup() and the restore_mode write would then clobber the color.
+# @note: THIS INTENTIONALLY TURNS THE LIGHT ON at every power-up. It deliberately overrides the outcome of the paired template's restore_mode (ALWAYS_OFF by default) - restore_mode still runs first at 799, then this action turns the light on at 600. If you want a dark boot, do not include this file.
+# @note: BROWN-OUT / USB CAUTION - a light coming on the instant the device boots draws its current while the regulator is still stabilising, which is exactly the situation restore_mode ALWAYS_OFF exists to avoid. st_boot_color_brightness defaults to a modest 60% for that reason, and it stacks with the paired template's own power cap (color_correct / max_power). On a board powered from USB with a long strip, lower it further rather than raising it; only push toward 100% with an injected external supply.
+# @note: WHITE-CHANNEL LIGHTS only get the RGB target here - there is no white/cold_white/warm_white key in this action. On rgbw_light with st_rgbw_color_interlock at its default "true", asking for an RGB color means the W channel is forced OFF, so the boot color is pure RGB. Set that var to "false" (and accept the higher current) if you want W mixed in. On led_strip_rgbw (SK6812) the dedicated W pixel channel likewise stays dark.
+# @note: NO ids ARE DECLARED in this file, so including it twice is safe: point each include at a different light via vars: { st_boot_color_light_id: ... } and you get two independent boot colors. The on_boot lists concatenate across packages.
+# @note: No shared knobs and no st_update_interval - this file exposes no entity and polls nothing.
+
+defaults:
+  st_boot_color_r: "100%"
+  st_boot_color_g: "100%"
+  st_boot_color_b: "100%"
+  st_boot_color_brightness: "60%"
+
+esphome:
+  # Priority 600 = setup_priority::DATA. Components are set up highest-priority
+  # first, so by the time this runs the LEDC/RMT outputs (800) and the
+  # light::LightState (799) are ready, while WiFi (250) and the API (200) have
+  # not started - the light lights up at once and never waits on the network.
+  on_boot:
+    - priority: 600
+      then:
+        - light.turn_on:
+            id: ${st_boot_color_light_id}
+            brightness: ${st_boot_color_brightness}
+            red: ${st_boot_color_r}
+            green: ${st_boot_color_g}
+            blue: ${st_boot_color_b}

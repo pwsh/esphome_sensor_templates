@@ -455,10 +455,11 @@ def write_docs(entries):
         path = DOCS_DIR / f"{e['slug']}.md"
         path.write_text(render_doc(e), encoding="utf-8")
         written.append(path)
-    # prune stale docs
+    # prune stale docs — but never the hand-written guide pages
+    HAND_WRITTEN = {"home_assistant"}
     deleted = []
     for md in DOCS_DIR.glob("*.md"):
-        if md.stem not in slugs:
+        if md.stem not in slugs and md.stem not in HAND_WRITTEN:
             md.unlink()
             deleted.append(md)
     return written, deleted

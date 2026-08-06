@@ -139,6 +139,9 @@ packages:
   light_rgbw: !include
     file: ../templates/lighting/rgbw_light.yaml
     vars: { st_rgbw_pin_r: GPIO9, st_rgbw_pin_g: GPIO10, st_rgbw_pin_b: GPIO11, st_rgbw_pin_w: GPIO12 }
+  light_boot_color: !include
+    file: ../templates/lighting/boot_color.yaml
+    vars: { st_boot_color_light_id: st_led_strip }
 
   # ── controls ────────────────────────────────────────────────
   ctl_restart: !include ../templates/controls/restart_button.yaml

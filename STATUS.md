@@ -1,18 +1,25 @@
 # Project Status
 
-_Last updated: 2026-07-11 (ESPHome 2026.6.5)._
+_Last updated: 2026-08-05 (ESPHome 2026.6.5)._
 
 ## What exists
 
-- **75 templates** across **12 categories** (counts from the generated catalog):
-  core 14 · diagnostics 16 · network 7 · lighting 5 · audio 4 · environment 6 · presence 2 ·
+- **76 templates** across **12 categories** (counts from the generated catalog):
+  core 14 · diagnostics 16 · network 7 · lighting 6 · audio 4 · environment 6 · presence 2 ·
   bluetooth 2 · remote 4 · peripherals 4 · controls 6 · inputs 5.
 - **Web config builder** at <https://pwsh.github.io/esphome_sensor_templates/> — board/variant
   picker (all 10 ESP32 variants), device identity + network + timezone panel, per-template
-  variable editors with enum/boolean dropdowns, requirements advisor with one-click fixes,
-  multi-instance support, three output modes (remote github://, local vendored, inline YAML),
-  substitutions hoisting for multi-device reuse, annotated output, secrets checklist.
-- **Generated docs** — one page per template in `docs/`, README index, `web/catalog.json`.
+  variable editors with enum/boolean dropdowns and a color picker for `*_color_r/_g/_b` var
+  trios, requirements advisor with one-click fixes, multi-instance support, three output modes
+  (remote github://, local vendored, inline YAML), substitutions hoisting for multi-device
+  reuse, annotated output, secrets checklist.
+- **Lighting**: every light template ships a curated effects list (pulse/strobe/flicker/random
+  plus the addressable set on strips), and `lighting/boot_color.yaml` pairs with any library
+  light to set a chosen power-on color (boot priority 600, verified against ESPHome setup
+  priorities: lights at 799–800, WiFi at 250).
+- **Generated docs** — one page per template in `docs/`, README index, `web/catalog.json`,
+  plus the hand-written `docs/home_assistant.md` (vendoring the library into HA OS/Container
+  installs so local includes build without GitHub).
 - **Examples** — `minimal` (C3), `full_diagnostics` (ESP32, global-override demo),
   `all_templates` (S3 kitchen sink, the merge proof), `peripherals_esp32` (camera/IR/RF/LD2450,
   identity fully package-sourced).

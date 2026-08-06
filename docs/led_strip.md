@@ -53,5 +53,6 @@ packages:
 - MULTI-INSTANCE - include this file more than once to get several strips. Each extra include MUST override st_led_strip_id, st_led_strip_name AND st_led_strip_pin; duplicate ids or shared data pins are errors.
 - POWER CAP - a WS2812-class LED draws ~60 mA at full white. A 500 mA USB budget minus ~150 mA for the ESP32 leaves headroom for only ~5-8 LEDs at 100%. st_power_limit defaults to 0.5 (color_correct halves every channel). Raise it toward 1.0 ONLY when the strip has its own injected power supply.
 - RGB ORDER - the WS2812/SK6812/APA106 family is GRB; WS2811 strips are commonly RGB. If red and green look swapped, flip st_rgb_order.
-- Effects are compiled in but cost nothing until activated from HA - the curated list below is free to keep.
+- Effects are compiled in but cost nothing until activated from HA - an idle effect list adds only flash/RAM, no runtime work, so the curated list below is free to keep.
+- The plain (non-addressable) pulse/random/strobe/flicker effects are valid on an addressable light too - they drive the whole strip as one uniform color. Slow Pulse and Slow Random below are exactly that.
 - rmt_symbols / use_dma are optional RMT tuning knobs; the defaults are fine for typical strips on ESP-IDF, so they are omitted here.

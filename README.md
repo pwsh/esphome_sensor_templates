@@ -50,6 +50,10 @@ packages:
   heap: github://pwsh/esphome_sensor_templates/templates/diagnostics/heap.yaml@main
 ```
 
+Using Home Assistant and want the local-include form without depending on GitHub at build time?
+See **[docs/home_assistant.md](docs/home_assistant.md)** for exactly where to copy the library on
+each kind of HA install (add-on, Container, CLI) and the Samba/VS Code/SSH ways to get it there.
+
 ## Global knobs
 
 Set any of these once in your top-level `substitutions:` to affect every included template
@@ -121,6 +125,7 @@ Set any of these once in your top-level `substitutions:` to affect every include
 
 | Template | Description | Entities |
 |---|---|---|
+| [Boot Color (Power-On Color Choice)](docs/boot_color.md) | Turns a light from this library on at a chosen color and brightness every time the device boots. Give any RGB(W) or addressable strip a fixed power-on look instead of coming up dark. | preset |
 | [Addressable RGB LED Strip (RMT)](docs/led_strip.md) | A WS2812-family addressable RGB strip driven by the ESP32 RMT peripheral. Ships a conservative, USB-safe brightness cap and a curated set of addressable effects. | 1 |
 | [Addressable RGBW LED Strip (RMT, SK6812)](docs/led_strip_rgbw.md) | An SK6812 RGBW addressable strip driven by the ESP32 RMT peripheral, with a dedicated white channel. Ships a conservative, USB-safe brightness cap and a curated set of addressable effects. | 1 |
 | [PWM Dimmable Light (LEDC)](docs/pwm_light.md) | A single-channel dimmable LED or single-color strip driven by an ESP32 LEDC PWM output. Duty-cycle cap keeps a MOSFET-driven strip inside the USB power budget by default. | 1 |

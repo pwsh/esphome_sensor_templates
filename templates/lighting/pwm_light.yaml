@@ -17,6 +17,7 @@
 # @note: MULTI-INSTANCE - include this file more than once to get several PWM lights. Each extra include MUST override st_pwm_light_id, st_pwm_light_name AND st_pwm_pin; duplicate ids or shared pins are errors. The LEDC output id is derived as ${st_pwm_light_id}_out, so overriding the light id keeps the output id unique too.
 # @note: POWER CAP - st_pwm_max_power caps the LEDC duty cycle via the output max_power (0.8 = 80% of full brightness). For a single onboard LED this is just headroom, but for a MOSFET-driven single-color strip it is the real current limiter: size the cap to your supply. A short WS2812-equivalent single-color run at ~60 mA/LED will exceed a 500 mA USB budget past ~5-8 LEDs at full duty. Raise toward 1.0 only with an external supply.
 # @note: LEDC has no per-platform max_power key; max_power is a base float-output option and is the correct place to cap duty.
+# @note: Effects are compiled in but cost nothing until activated from HA - an idle effect list adds only flash/RAM, no runtime work, so the curated list below is free to keep.
 
 # Shared knobs live under substitutions: (not defaults:) so a single
 # main-config substitution overrides them across every included template;
@@ -57,6 +58,13 @@ light:
           transition_length: 1s
           update_interval: 2s
           min_brightness: 10%
+          max_brightness: 100%
+      # Quick attention-getting throb; min 20% keeps it from reading as a blink.
+      - pulse:
+          name: Fast Pulse
+          transition_length: 250ms
+          update_interval: 500ms
+          min_brightness: 20%
           max_brightness: 100%
       - strobe:
           name: Strobe
