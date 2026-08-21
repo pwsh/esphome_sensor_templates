@@ -1,6 +1,6 @@
 # Web Server
 
-Built-in web UI (v3) with HTTP basic auth and a boot-time gate that can disable auth without editing the config. Keeps the device usable standalone when Home Assistant is down.
+Built-in web UI (v3) with HTTP digest auth and a boot-time gate that can disable auth without editing the config. Keeps the device usable standalone when Home Assistant is down.
 
 **Platforms:** `esp32` `esp32s2` `esp32s3` `esp32c3` `esp32c6`
 
@@ -35,12 +35,14 @@ packages:
 | Variable | Default | Description |
 |---|---|---|
 | st_web_include_internal | `true` | Show internal: entities in the web UI too (C++ bool literal) |
-| st_web_username | `admin` | HTTP basic auth username; MUST NOT be empty (see note) |
-| **st_web_password** | **(required)** | HTTP basic auth password; pass via vars: { st_web_password: !secret web_password } |
+| st_web_username | `admin` | HTTP auth username; MUST NOT be empty (see note) |
+| **st_web_password** | **(required)** | HTTP auth password; pass via vars: { st_web_password: !secret web_password } |
+| st_web_auth_scheme | `digest` | HTTP auth scheme. digest never sends the password in reversible form and becomes ESPHome's default in 2027.1.0; pick basic only for clients that cannot do digest One of: `digest`, `basic`. |
 | st_web_auth | `true` | Enable auth at boot - must be exactly "true" or "false", substituted as a C++ bool literal |
 
 ## Notes
 
+- MIN VERSION 2026.7.0 for this file: the auth `type:` key does not exist earlier (verified: 2026.6.5 rejects it, 2026.7.4 accepts it). ESPHome 2026.8 deprecation-warns configs without an explicit type; the default flips from basic to digest in 2027.1.0 - this template adopts digest early. The scheme is a compile-time choice: with digest, the basic code path is compiled out entirely (and vice versa).
 - st_web_auth is injected raw into a lambda as a C++ bool literal, so it MUST be exactly "true" or "false" - not "1", "yes", or "True".
 - WebServerBase::add_handler only wraps handlers in auth middleware when credentials are non-empty AT REGISTRATION TIME. web_server registers its handlers in setup() at priority ~249 (WIFI-1), so clearing the credentials in on_boot at priority 600 (which runs earlier) disables auth for the whole boot.
 - st_web_username must NOT be empty - web_server_idf's authenticate() FAILS OPEN on an empty username (returns true for every request), silently disabling auth. Password-only auth is therefore not possible.

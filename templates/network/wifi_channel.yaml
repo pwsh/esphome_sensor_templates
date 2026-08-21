@@ -10,7 +10,7 @@
 # @var st_disabled_by_default [false]: Ship the entity disabled in HA
 # @var st_internal [false]: Hide the entity from HA/web entirely
 # @note: A channel number is not a measurement, so state_class is intentionally omitted (st_state_class does not apply).
-# @note: Uses esp_wifi_sta_get_ap_info directly (ESP-IDF). esp_wifi.h is NOT in scope in ESPHome lambdas by default, so this file force-includes it into main.cpp via platformio_options build_src_flags (project sources only - the framework build is untouched).
+# @note: Uses esp_wifi_sta_get_ap_info directly (ESP-IDF). esp_wifi.h is NOT in scope in ESPHome lambdas by default, so this file injects #include <esp_wifi.h> into main.cpp via esphome includes: (toolchain-independent: works on both the native ESP-IDF toolchain that 2026.7 made the default and the legacy PlatformIO one).
 # @note: Returns NAN (state unknown) when the device is not associated.
 
 # Shared knobs live under substitutions: (not defaults:) so a single
@@ -23,12 +23,18 @@ substitutions:
   st_internal: "false"
 
 esphome:
-  # esp_wifi.h is not included in main.cpp by any component, so force-include
-  # it for the lambda below. build_src_flags only affects the project's own
-  # src/ (main.cpp) and the list concatenates with flags from other templates.
-  platformio_options:
-    build_src_flags:
-      - "-include esp_wifi.h"
+  # esp_wifi.h is not included in main.cpp by any component, so
+  # force-include it for the lambda below.
+  # ESPHome 2026.7 flipped the default ESP32 toolchain from PlatformIO to
+  # native ESP-IDF, where the old platformio_options/build_src_flags mechanism
+  # is ignored and even esphome->build_flags drops -include flags (the native
+  # generator forwards only -D/-W; verified by failed 2026.8.0 compiles).
+  # esphome->includes with <...> system-header entries is the correct
+  # toolchain-independent mechanism: it emits a literal #include into
+  # main.cpp via codegen (no file copying), works identically on 2026.6.5,
+  # 2026.7.4 and 2026.8.0 (all probed), and lists concatenate across packages.
+  includes:
+    - <esp_wifi.h>
 
 sensor:
   - platform: template

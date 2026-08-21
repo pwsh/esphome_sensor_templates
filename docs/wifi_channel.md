@@ -44,5 +44,5 @@ packages:
 ## Notes
 
 - A channel number is not a measurement, so state_class is intentionally omitted (st_state_class does not apply).
-- Uses esp_wifi_sta_get_ap_info directly (ESP-IDF). esp_wifi.h is NOT in scope in ESPHome lambdas by default, so this file force-includes it into main.cpp via platformio_options build_src_flags (project sources only - the framework build is untouched).
+- Uses esp_wifi_sta_get_ap_info directly (ESP-IDF). esp_wifi.h is NOT in scope in ESPHome lambdas by default, so this file injects #include <esp_wifi.h> into main.cpp via esphome includes: (toolchain-independent: works on both the native ESP-IDF toolchain that 2026.7 made the default and the legacy PlatformIO one).
 - Returns NAN (state unknown) when the device is not associated.

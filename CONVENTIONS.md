@@ -8,6 +8,12 @@ follow it exactly — the docs generator, the web builder, and the validation ha
 - Target hardware: **ESP32 family only** (esp32, esp32s2, esp32s3, esp32c3, esp32c6) on the
   **ESP-IDF framework**. Lambdas may use ESP-IDF APIs directly (`nvs_get_stats`, `esp_partition_*`,
   etc.). Never use Arduino-only APIs (`WiFi.`, `ESP.`).
+- IDF headers are NOT in scope in lambdas by default. A template that needs one injects it via
+  `esphome:` `includes:` with a `<header.h>` system entry (codegens a literal `#include` into
+  main.cpp; lists concatenate across packages; works on both toolchains). Never use
+  `platformio_options: build_src_flags` (ignored since the 2026.7 native-ESP-IDF default) or
+  `esphome: build_flags:` for this (`-include` flags are dropped by the native generator).
+  Only a real `esphome compile` proves a lambda's headers resolve — `esphome config` cannot.
 - Minimum ESPHome version: **2026.5.0** (first release where `!include vars` are visible inside a
   package's own `substitutions:`/`defaults:` block and inside `!lambda` bodies).
 

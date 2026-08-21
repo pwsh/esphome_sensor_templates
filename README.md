@@ -1,16 +1,19 @@
 # ESPHome Sensor Templates
 
-75 reusable, standalone ESPHome template files for ESP32-family devices (ESP-IDF framework),
+77 reusable, standalone ESPHome template files for ESP32-family devices (ESP-IDF framework),
 plus a point-and-click **[config builder](https://pwsh.github.io/esphome_sensor_templates/)**.
 Each template is a self-contained [package](https://esphome.io/components/packages/): include one
 file, get a working, documented feature with sensible defaults — customize per sensor via
 `vars:` or globally via top-level `substitutions:`.
 
-**Minimum ESPHome version: 2026.5.0.** Audited platforms: ESP32, ESP32-S2, ESP32-S3, ESP32-C3,
-ESP32-C6 (the builder also offers C2/C5/C61/H2/P4, marked unaudited).
+**Minimum ESPHome version: 2026.5.0** for all templates except `web_server` (2026.7.0+, explicit
+auth scheme) and `ld6002b` (2026.8.0+, component added there). The library is validated against
+the latest stable (2026.8.0) and back-compat-compiled on 2026.6.5. Audited platforms: ESP32,
+ESP32-S2, ESP32-S3, ESP32-C3, ESP32-C6 (the builder also offers C2/C5/C61/H2/P4, marked
+unaudited).
 
-**Categories:** core (14) · diagnostics (16) · network (7) · lighting (5) · audio (4) ·
-environment (6) · presence (2) · bluetooth (2) · remote (4) · peripherals (4) · controls (6) ·
+**Categories:** core (14) · diagnostics (16) · network (7) · lighting (6) · audio (4) ·
+environment (6) · presence (3) · bluetooth (2) · remote (4) · peripherals (4) · controls (6) ·
 inputs (5) — full index below, one doc page per template in [docs/](docs/).
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for how the system fits together and
@@ -86,7 +89,7 @@ Set any of these once in your top-level `substitutions:` to affect every include
 | [Syslog](docs/syslog.md) | Forwards ESPHome logs to a remote syslog server over UDP using the official syslog component. Useful for centralised log collection when a device is not attached to a serial console. | preset |
 | [Home Assistant Time](docs/time_homeassistant.md) | Time source synced from Home Assistant. Provides the time: component other templates (daily_restart, last_boot) require. | preset |
 | [SNTP Time](docs/time_sntp.md) | SNTP time source with configurable server. Provides the time: component other templates (daily_restart, last_boot) require. | preset |
-| [Web Server](docs/web_server.md) | Built-in web UI (v3) with HTTP basic auth and a boot-time gate that can disable auth without editing the config. Keeps the device usable standalone when Home Assistant is down. | preset |
+| [Web Server](docs/web_server.md) | Built-in web UI (v3) with HTTP digest auth and a boot-time gate that can disable auth without editing the config. Keeps the device usable standalone when Home Assistant is down. | preset |
 
 ### Diagnostics
 
@@ -158,6 +161,7 @@ Set any of these once in your top-level `substitutions:` to affect every include
 |---|---|---|
 | [LD2410 mmWave Presence](docs/ld2410.md) | HiLink LD2410 24GHz mmWave radar presence sensor over UART. Exposes occupancy plus moving/still target flags and distances. Owns its own uart: bus. | 5 |
 | [LD2450 mmWave Tracking](docs/ld2450.md) | HiLink LD2450 24GHz mmWave radar with multi-target tracking over UART. Exposes occupancy plus the active target count. Owns its own uart: bus. | 2 |
+| [LD6002B 3D mmWave Presence](docs/ld6002b.md) | HiLink HLK-LD6002B 60GHz mmWave radar with 3D (X/Y/Z) multi-target tracking over UART. Exposes occupancy, the active target count and the first target's 3D position. Owns its own uart: bus. | 5 |
 
 ### Bluetooth
 

@@ -392,7 +392,8 @@
       "notes": [
         "NOT available on ESP32-S2 - that chip has no Bluetooth radio at all. Works on esp32, esp32s3, esp32c3 and esp32c6.",
         "The BLE stack costs a significant chunk of RAM and flash - expect a noticeable heap drop after enabling it. It is frequently paired with bluetooth_proxy.yaml (which depends on this scanner).",
-        "On single-core chips (ESP32-C3) both WiFi and the BLE tracker share one core; enable software_coexistence manually if you see WiFi/BLE contention."
+        "On single-core chips (ESP32-C3) both WiFi and the BLE tracker share one core; enable software_coexistence manually if you see WiFi/BLE contention.",
+        "BEHAVIOR CHANGE in 2026.8.0: with WiFi coexistence on ESP-IDF >= 5.5.5 the scan window now defaults to the full scan interval, fixing trackers missing most advertisements alongside WiFi (a regression since 2026.7.1). No config change needed; explicit window: settings are honored as before."
       ],
       "path": "templates/bluetooth/ble_tracker.yaml",
       "body": "defaults:\n  st_ble_scan_interval: 320ms\n  st_ble_scan_window: 30ms\n  st_ble_scan_duration: 5min\n  st_ble_active: \"true\"\n\nesp32_ble_tracker:\n  id: st_ble_tracker\n  scan_parameters:\n    interval: ${st_ble_scan_interval}\n    window: ${st_ble_scan_window}\n    duration: ${st_ble_scan_duration}\n    active: ${st_ble_active}\n"
@@ -432,7 +433,8 @@
         "This file does NOT declare esp32_ble_tracker - bluetooth_proxy AUTO-LOADS the BLE tracker for you, so the scanner is enabled automatically with default scan parameters.",
         "SAFE to also include bluetooth/ble_tracker.yaml if you want to tune scan parameters - the auto-loaded tracker and the explicit esp32_ble_tracker block merge cleanly (verified: no duplicate-component error). Include ble_tracker.yaml only when you need to change interval/window/duration/active.",
         "Active connections are limited (default 3, hard max 9); each open GATT connection uses RAM, so keep the count low.",
-        "NOT available on ESP32-S2 (no Bluetooth radio). Requires the native API (api:) enabled and the device adopted into Home Assistant."
+        "NOT available on ESP32-S2 (no Bluetooth radio). Requires the native API (api:) enabled and the device adopted into Home Assistant.",
+        "Home Assistant 2026.6 changed the proxy's default scan mode to Auto (passive listening with brief active bursts, ~95% battery-device savings vs always-Active); devices previously set to Active were auto-migrated. ESPHome 2026.7 also fixed the 'connected but no advertisements' condition after HA restarts (a newer HA subscriber now takes over a stale slot). Both are runtime/HA-side - no config change here."
       ],
       "path": "templates/bluetooth/bluetooth_proxy.yaml",
       "body": "defaults:\n  st_bt_proxy_active: \"true\"\n  st_bt_proxy_connection_slots: \"3\"\n\n# esp32_ble_tracker is auto-loaded by bluetooth_proxy; it is intentionally NOT declared\n# here so it stays overridable via bluetooth/ble_tracker.yaml.\nbluetooth_proxy:\n  active: ${st_bt_proxy_active}\n  connection_slots: ${st_bt_proxy_connection_slots}\n"
@@ -1173,7 +1175,8 @@
         }
       ],
       "notes": [
-        "Required by the safe_mode button/switch platforms. safe_mode is auto-enabled anyway whenever ota: is present - this preset just tunes its thresholds."
+        "Required by the safe_mode button/switch platforms. safe_mode is auto-enabled anyway whenever ota: is present - this preset just tunes its thresholds.",
+        "ESPHome 2026.7+ adds a storage: rtc|flash option (RTC-backed boot counter avoids NVS wear) and 2026.8 makes safe_mode prevent OTA rollback when entering deep sleep. Not emitted here to keep the file compatible with 2026.5+; to use it, add `safe_mode: storage: rtc` in your main config - top-level dicts merge key-by-key with this package."
       ],
       "path": "templates/core/safe_mode.yaml",
       "body": "defaults:\n  st_safe_mode_attempts: \"10\"\n  st_safe_mode_reboot_timeout: 5min\n  st_safe_mode_boot_good_after: 1min\n\nsafe_mode:\n  num_attempts: ${st_safe_mode_attempts}\n  reboot_timeout: ${st_safe_mode_reboot_timeout}\n  boot_is_good_after: ${st_safe_mode_boot_good_after}\n  on_safe_mode:\n    - logger.log: \"Safe mode activated\"\n"
@@ -1316,7 +1319,7 @@
       "slug": "web_server",
       "title": "Web Server",
       "category": "core",
-      "description": "Built-in web UI (v3) with HTTP basic auth and a boot-time gate that can disable auth without editing the config. Keeps the device usable standalone when Home Assistant is down.",
+      "description": "Built-in web UI (v3) with HTTP digest auth and a boot-time gate that can disable auth without editing the config. Keeps the device usable standalone when Home Assistant is down.",
       "platforms": [
         "esp32",
         "esp32s2",
@@ -1341,14 +1344,25 @@
           "default": "admin",
           "required": false,
           "secret": false,
-          "description": "HTTP basic auth username; MUST NOT be empty (see note)"
+          "description": "HTTP auth username; MUST NOT be empty (see note)"
         },
         {
           "name": "st_web_password",
           "default": "",
           "required": true,
           "secret": true,
-          "description": "HTTP basic auth password; pass via vars: { st_web_password: !secret web_password }"
+          "description": "HTTP auth password; pass via vars: { st_web_password: !secret web_password }"
+        },
+        {
+          "name": "st_web_auth_scheme",
+          "default": "digest",
+          "required": false,
+          "secret": false,
+          "description": "HTTP auth scheme. digest never sends the password in reversible form and becomes ESPHome's default in 2027.1.0; pick basic only for clients that cannot do digest",
+          "choices": [
+            "digest",
+            "basic"
+          ]
         },
         {
           "name": "st_web_auth",
@@ -1359,12 +1373,13 @@
         }
       ],
       "notes": [
+        "MIN VERSION 2026.7.0 for this file: the auth `type:` key does not exist earlier (verified: 2026.6.5 rejects it, 2026.7.4 accepts it). ESPHome 2026.8 deprecation-warns configs without an explicit type; the default flips from basic to digest in 2027.1.0 - this template adopts digest early. The scheme is a compile-time choice: with digest, the basic code path is compiled out entirely (and vice versa).",
         "st_web_auth is injected raw into a lambda as a C++ bool literal, so it MUST be exactly \"true\" or \"false\" - not \"1\", \"yes\", or \"True\".",
         "WebServerBase::add_handler only wraps handlers in auth middleware when credentials are non-empty AT REGISTRATION TIME. web_server registers its handlers in setup() at priority ~249 (WIFI-1), so clearing the credentials in on_boot at priority 600 (which runs earlier) disables auth for the whole boot.",
         "st_web_username must NOT be empty - web_server_idf's authenticate() FAILS OPEN on an empty username (returns true for every request), silently disabling auth. Password-only auth is therefore not possible."
       ],
       "path": "templates/core/web_server.yaml",
-      "body": "defaults:\n  st_web_include_internal: \"true\"\n  st_web_username: \"admin\"\n  st_web_auth: \"true\"\n\nesphome:\n  on_boot:\n    # Priority 600 runs before web_server registers its handlers (setup, ~249),\n    # so clearing credentials here means add_handler never wraps them in auth\n    # middleware for this boot. See @note above for the timing details.\n    - priority: 600\n      then:\n        - lambda: |-\n            if (!${st_web_auth}) {\n              web_server_base::global_web_server_base->set_auth_username(\"\");\n              web_server_base::global_web_server_base->set_auth_password(\"\");\n            }\n\nweb_server:\n  version: 3\n  include_internal: ${st_web_include_internal}\n  auth:\n    # Username must stay non-empty even when auth is \"disabled\" - an empty\n    # username makes authenticate() fail open (see @note above).\n    username: \"${st_web_username}\"\n    # Required var - no default. Users pass: vars: { st_web_password: !secret web_password }\n    password: \"${st_web_password}\"\n"
+      "body": "defaults:\n  st_web_include_internal: \"true\"\n  st_web_username: \"admin\"\n  st_web_auth_scheme: digest\n  st_web_auth: \"true\"\n\nesphome:\n  on_boot:\n    # Priority 600 runs before web_server registers its handlers (setup, ~249),\n    # so clearing credentials here means add_handler never wraps them in auth\n    # middleware for this boot. See @note above for the timing details.\n    - priority: 600\n      then:\n        - lambda: |-\n            if (!${st_web_auth}) {\n              web_server_base::global_web_server_base->set_auth_username(\"\");\n              web_server_base::global_web_server_base->set_auth_password(\"\");\n            }\n\nweb_server:\n  version: 3\n  include_internal: ${st_web_include_internal}\n  auth:\n    # Explicit scheme (2026.7.0+): digest by default, ahead of the 2027.1.0\n    # default flip. Verified in 2026.8 source that the boot-gate above and the\n    # empty-username fail-open behave identically under both schemes.\n    type: ${st_web_auth_scheme}\n    # Username must stay non-empty even when auth is \"disabled\" - an empty\n    # username makes authenticate() fail open (see @note above).\n    username: \"${st_web_username}\"\n    # Required var - no default. Users pass: vars: { st_web_password: !secret web_password }\n    password: \"${st_web_password}\"\n"
     },
     {
       "slug": "boot_counter",
@@ -1462,7 +1477,7 @@
         "On IDF5 esp_chip_info_t.revision is encoded as major*100+minor, so it is split back into \"major.minor\" (e.g. 0.4). The features bitmask is decoded to a \"/\"-joined radio list (WiFi/BT/BLE/802.15.4)."
       ],
       "path": "templates/diagnostics/chip_info.yaml",
-      "body": "substitutions:\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n\nesphome:\n  # esp_chip_info.h is not pulled into main.cpp by any component, so force-include\n  # it for the lambda below. build_src_flags only affects the project's own src/\n  # (main.cpp) and the list concatenates cleanly with flags from other templates.\n  platformio_options:\n    build_src_flags:\n      - \"-include esp_chip_info.h\"\n  on_boot:\n    # priority -100 runs late, after all sensors/text_sensors are set up, so the\n    # one-shot component.update below publishes into a live entity.\n    - priority: -100\n      then:\n        - component.update: st_chip_info\n\ntext_sensor:\n  - platform: template\n    id: st_chip_info\n    name: \"${st_name_prefix}Chip Model\"\n    icon: mdi:chip\n    entity_category: diagnostic\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n    # Static hardware fact - computed once and pushed from on_boot, never polled.\n    update_interval: never\n    lambda: |-\n      esp_chip_info_t ci;\n      esp_chip_info(&ci);\n      const char *model;\n      switch (ci.model) {\n        case CHIP_ESP32:    model = \"ESP32\";    break;\n        case CHIP_ESP32S2:  model = \"ESP32-S2\"; break;\n        case CHIP_ESP32S3:  model = \"ESP32-S3\"; break;\n        case CHIP_ESP32C3:  model = \"ESP32-C3\"; break;\n        case CHIP_ESP32C6:  model = \"ESP32-C6\"; break;\n        case CHIP_ESP32H2:  model = \"ESP32-H2\"; break;\n        default:            model = \"ESP32-family\"; break;\n      }\n      // Decode the radio feature bitmask into a \"/\"-joined list.\n      char feat[40];\n      int n = 0;\n      if (ci.features & CHIP_FEATURE_WIFI_BGN)\n        n += snprintf(feat + n, sizeof(feat) - n, \"%sWiFi\", n ? \"/\" : \"\");\n      if (ci.features & CHIP_FEATURE_BT)\n        n += snprintf(feat + n, sizeof(feat) - n, \"%sBT\", n ? \"/\" : \"\");\n      if (ci.features & CHIP_FEATURE_BLE)\n        n += snprintf(feat + n, sizeof(feat) - n, \"%sBLE\", n ? \"/\" : \"\");\n      if (ci.features & CHIP_FEATURE_IEEE802154)\n        n += snprintf(feat + n, sizeof(feat) - n, \"%s802.15.4\", n ? \"/\" : \"\");\n      // revision is major*100+minor on IDF5.\n      char buf[96];\n      snprintf(buf, sizeof(buf), \"%s rev %u.%u, %d core%s, %s\",\n               model,\n               (unsigned) (ci.revision / 100), (unsigned) (ci.revision % 100),\n               ci.cores, ci.cores == 1 ? \"\" : \"s\", feat);\n      return {std::string(buf)};\n"
+      "body": "substitutions:\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n\nesphome:\n  # esp_chip_info.h is not pulled into main.cpp by any component, so\n  # force-include it for the lambda below.\n  # ESPHome 2026.7 flipped the default ESP32 toolchain from PlatformIO to\n  # native ESP-IDF, where the old platformio_options/build_src_flags mechanism\n  # is ignored and even esphome->build_flags drops -include flags (the native\n  # generator forwards only -D/-W; verified by failed 2026.8.0 compiles).\n  # esphome->includes with <...> system-header entries is the correct\n  # toolchain-independent mechanism: it emits a literal #include into\n  # main.cpp via codegen (no file copying), works identically on 2026.6.5,\n  # 2026.7.4 and 2026.8.0 (all probed), and lists concatenate across packages.\n  includes:\n    - <esp_chip_info.h>\n  on_boot:\n    # priority -100 runs late, after all sensors/text_sensors are set up, so the\n    # one-shot component.update below publishes into a live entity.\n    - priority: -100\n      then:\n        - component.update: st_chip_info\n\ntext_sensor:\n  - platform: template\n    id: st_chip_info\n    name: \"${st_name_prefix}Chip Model\"\n    icon: mdi:chip\n    entity_category: diagnostic\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n    # Static hardware fact - computed once and pushed from on_boot, never polled.\n    update_interval: never\n    lambda: |-\n      esp_chip_info_t ci;\n      esp_chip_info(&ci);\n      const char *model;\n      switch (ci.model) {\n        case CHIP_ESP32:    model = \"ESP32\";    break;\n        case CHIP_ESP32S2:  model = \"ESP32-S2\"; break;\n        case CHIP_ESP32S3:  model = \"ESP32-S3\"; break;\n        case CHIP_ESP32C3:  model = \"ESP32-C3\"; break;\n        case CHIP_ESP32C6:  model = \"ESP32-C6\"; break;\n        case CHIP_ESP32H2:  model = \"ESP32-H2\"; break;\n        default:            model = \"ESP32-family\"; break;\n      }\n      // Decode the radio feature bitmask into a \"/\"-joined list.\n      char feat[40];\n      int n = 0;\n      if (ci.features & CHIP_FEATURE_WIFI_BGN)\n        n += snprintf(feat + n, sizeof(feat) - n, \"%sWiFi\", n ? \"/\" : \"\");\n      if (ci.features & CHIP_FEATURE_BT)\n        n += snprintf(feat + n, sizeof(feat) - n, \"%sBT\", n ? \"/\" : \"\");\n      if (ci.features & CHIP_FEATURE_BLE)\n        n += snprintf(feat + n, sizeof(feat) - n, \"%sBLE\", n ? \"/\" : \"\");\n      if (ci.features & CHIP_FEATURE_IEEE802154)\n        n += snprintf(feat + n, sizeof(feat) - n, \"%s802.15.4\", n ? \"/\" : \"\");\n      // revision is major*100+minor on IDF5.\n      char buf[96];\n      snprintf(buf, sizeof(buf), \"%s rev %u.%u, %d core%s, %s\",\n               model,\n               (unsigned) (ci.revision / 100), (unsigned) (ci.revision % 100),\n               ci.cores, ci.cores == 1 ? \"\" : \"s\", feat);\n      return {std::string(buf)};\n"
     },
     {
       "slug": "cpu_frequency",
@@ -1689,7 +1704,7 @@
         "Flash SPEED and mode are compile-time board settings and are not exposed at runtime; the debug component's device_info text sensor shows them in its summary string."
       ],
       "path": "templates/diagnostics/flash_info.yaml",
-      "body": "substitutions:\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n\nesphome:\n  # esp_flash.h is not pulled into main.cpp by any component, so force-include it\n  # for the lambda below. build_src_flags only affects the project's own src/\n  # (main.cpp) and the list concatenates cleanly with flags from other templates.\n  platformio_options:\n    build_src_flags:\n      - \"-include esp_flash.h\"\n  on_boot:\n    # priority -100 runs late, after all sensors are set up, so the one-shot\n    # component.update below publishes into a live entity.\n    - priority: -100\n      then:\n        - component.update: st_flash_size\n\nsensor:\n  - platform: template\n    id: st_flash_size\n    name: \"${st_name_prefix}Flash Size\"\n    unit_of_measurement: MiB\n    device_class: data_size\n    accuracy_decimals: 0\n    icon: mdi:memory\n    entity_category: diagnostic\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n    # Static hardware fact - computed once and pushed from on_boot, never polled.\n    update_interval: never\n    # NULL selects esp_flash_default_chip (the on-board SPI flash).\n    lambda: |-\n      uint32_t size;\n      if (esp_flash_get_size(NULL, &size) != ESP_OK) return NAN;\n      return size / 1048576.0;\n"
+      "body": "substitutions:\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n\nesphome:\n  # esp_flash.h is not pulled into main.cpp by any component, so\n  # force-include it for the lambda below.\n  # ESPHome 2026.7 flipped the default ESP32 toolchain from PlatformIO to\n  # native ESP-IDF, where the old platformio_options/build_src_flags mechanism\n  # is ignored and even esphome->build_flags drops -include flags (the native\n  # generator forwards only -D/-W; verified by failed 2026.8.0 compiles).\n  # esphome->includes with <...> system-header entries is the correct\n  # toolchain-independent mechanism: it emits a literal #include into\n  # main.cpp via codegen (no file copying), works identically on 2026.6.5,\n  # 2026.7.4 and 2026.8.0 (all probed), and lists concatenate across packages.\n  includes:\n    - <esp_flash.h>\n  on_boot:\n    # priority -100 runs late, after all sensors are set up, so the one-shot\n    # component.update below publishes into a live entity.\n    - priority: -100\n      then:\n        - component.update: st_flash_size\n\nsensor:\n  - platform: template\n    id: st_flash_size\n    name: \"${st_name_prefix}Flash Size\"\n    unit_of_measurement: MiB\n    device_class: data_size\n    accuracy_decimals: 0\n    icon: mdi:memory\n    entity_category: diagnostic\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n    # Static hardware fact - computed once and pushed from on_boot, never polled.\n    update_interval: never\n    # NULL selects esp_flash_default_chip (the on-board SPI flash).\n    lambda: |-\n      uint32_t size;\n      if (esp_flash_get_size(NULL, &size) != ESP_OK) return NAN;\n      return size / 1048576.0;\n"
     },
     {
       "slug": "heap",
@@ -2003,7 +2018,7 @@
         "PSRAM Total reports 0 on boards without external SPI RAM (e.g. ESP32-C3/C6). It reads the heap capability registry (MALLOC_CAP_SPIRAM) directly and does NOT require the psram: component to be configured."
       ],
       "path": "templates/diagnostics/memory_info.yaml",
-      "body": "substitutions:\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n\nesphome:\n  # esp_heap_caps.h is not pulled into main.cpp by any component, so force-include\n  # it for the lambdas below. build_src_flags only affects the project's own src/\n  # (main.cpp) and the list concatenates cleanly with flags from other templates.\n  platformio_options:\n    build_src_flags:\n      - \"-include esp_heap_caps.h\"\n  on_boot:\n    # priority -100 runs late, after all sensors are set up, so the one-shot\n    # component.updates below publish into live entities.\n    - priority: -100\n      then:\n        - component.update: st_ram_total\n        - component.update: st_psram_total\n\nsensor:\n  - platform: template\n    id: st_ram_total\n    name: \"${st_name_prefix}RAM Total\"\n    unit_of_measurement: KiB\n    device_class: data_size\n    accuracy_decimals: 0\n    icon: mdi:memory\n    entity_category: diagnostic\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n    # Static hardware fact - computed once and pushed from on_boot, never polled.\n    update_interval: never\n    lambda: |-\n      return heap_caps_get_total_size(MALLOC_CAP_INTERNAL) / 1024.0;\n\n  - platform: template\n    id: st_psram_total\n    name: \"${st_name_prefix}PSRAM Total\"\n    unit_of_measurement: KiB\n    device_class: data_size\n    accuracy_decimals: 0\n    icon: mdi:memory\n    entity_category: diagnostic\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n    # Static hardware fact - computed once and pushed from on_boot, never polled.\n    # Reports 0 on boards with no PSRAM (registry has no MALLOC_CAP_SPIRAM pool).\n    update_interval: never\n    lambda: |-\n      return heap_caps_get_total_size(MALLOC_CAP_SPIRAM) / 1024.0;\n"
+      "body": "substitutions:\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n\nesphome:\n  # esp_heap_caps.h is not pulled into main.cpp by any component, so\n  # force-include it for the lambdas below.\n  # ESPHome 2026.7 flipped the default ESP32 toolchain from PlatformIO to\n  # native ESP-IDF, where the old platformio_options/build_src_flags mechanism\n  # is ignored and even esphome->build_flags drops -include flags (the native\n  # generator forwards only -D/-W; verified by failed 2026.8.0 compiles).\n  # esphome->includes with <...> system-header entries is the correct\n  # toolchain-independent mechanism: it emits a literal #include into\n  # main.cpp via codegen (no file copying), works identically on 2026.6.5,\n  # 2026.7.4 and 2026.8.0 (all probed), and lists concatenate across packages.\n  includes:\n    - <esp_heap_caps.h>\n  on_boot:\n    # priority -100 runs late, after all sensors are set up, so the one-shot\n    # component.updates below publish into live entities.\n    - priority: -100\n      then:\n        - component.update: st_ram_total\n        - component.update: st_psram_total\n\nsensor:\n  - platform: template\n    id: st_ram_total\n    name: \"${st_name_prefix}RAM Total\"\n    unit_of_measurement: KiB\n    device_class: data_size\n    accuracy_decimals: 0\n    icon: mdi:memory\n    entity_category: diagnostic\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n    # Static hardware fact - computed once and pushed from on_boot, never polled.\n    update_interval: never\n    lambda: |-\n      return heap_caps_get_total_size(MALLOC_CAP_INTERNAL) / 1024.0;\n\n  - platform: template\n    id: st_psram_total\n    name: \"${st_name_prefix}PSRAM Total\"\n    unit_of_measurement: KiB\n    device_class: data_size\n    accuracy_decimals: 0\n    icon: mdi:memory\n    entity_category: diagnostic\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n    # Static hardware fact - computed once and pushed from on_boot, never polled.\n    # Reports 0 on boards with no PSRAM (registry has no MALLOC_CAP_SPIRAM pool).\n    update_interval: never\n    lambda: |-\n      return heap_caps_get_total_size(MALLOC_CAP_SPIRAM) / 1024.0;\n"
     },
     {
       "slug": "nvs_usage",
@@ -2058,7 +2073,7 @@
         "OTA never updates the partition table. A device first flashed with an old ESPHome may still run a 20 kB NVS even though current ESPHome allocates 448 kB - only a wired flash replaces the table."
       ],
       "path": "templates/diagnostics/nvs_usage.yaml",
-      "body": "substitutions:\n  st_update_interval: 60s\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n\nesphome:\n  # nvs.h / esp_partition.h are not pulled into main.cpp by any component, so\n  # force-include them for the lambda below. build_src_flags only affects the\n  # project's own src/ (main.cpp), not the framework build, and the list\n  # concatenates cleanly with flags from other templates.\n  platformio_options:\n    build_src_flags:\n      - \"-include nvs.h\"\n      - \"-include esp_partition.h\"\n\ntext_sensor:\n  - platform: template\n    id: st_nvs_usage\n    name: \"${st_name_prefix}NVS Usage\"\n    icon: mdi:database\n    entity_category: diagnostic\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n    update_interval: ${st_update_interval}\n    # nvs_get_stats() covers the default \"nvs\" partition; the partition lookup\n    # reports the size actually flashed to THIS device (see @note above).\n    lambda: |-\n      nvs_stats_t s;\n      if (nvs_get_stats(NULL, &s) != ESP_OK) return {\"unavailable\"};\n      const esp_partition_t *p = esp_partition_find_first(\n          ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_NVS, nullptr);\n      char buf[64];\n      snprintf(buf, sizeof(buf), \"%u/%u entries, %u kB partition\",\n               (unsigned) s.used_entries, (unsigned) s.total_entries,\n               p != nullptr ? (unsigned) (p->size / 1024) : 0);\n      return {std::string(buf)};\n"
+      "body": "substitutions:\n  st_update_interval: 60s\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n\nesphome:\n  # nvs.h / esp_partition.h are not pulled into main.cpp by any component, so\n  # force-include them for the lambda below.\n  # ESPHome 2026.7 flipped the default ESP32 toolchain from PlatformIO to\n  # native ESP-IDF, where the old platformio_options/build_src_flags mechanism\n  # is ignored and even esphome->build_flags drops -include flags (the native\n  # generator forwards only -D/-W; verified by failed 2026.8.0 compiles).\n  # esphome->includes with <...> system-header entries is the correct\n  # toolchain-independent mechanism: it emits a literal #include into\n  # main.cpp via codegen (no file copying), works identically on 2026.6.5,\n  # 2026.7.4 and 2026.8.0 (all probed), and lists concatenate across packages.\n  includes:\n    - <nvs.h>\n    - <esp_partition.h>\n\ntext_sensor:\n  - platform: template\n    id: st_nvs_usage\n    name: \"${st_name_prefix}NVS Usage\"\n    icon: mdi:database\n    entity_category: diagnostic\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n    update_interval: ${st_update_interval}\n    # nvs_get_stats() covers the default \"nvs\" partition; the partition lookup\n    # reports the size actually flashed to THIS device (see @note above).\n    lambda: |-\n      nvs_stats_t s;\n      if (nvs_get_stats(NULL, &s) != ESP_OK) return {\"unavailable\"};\n      const esp_partition_t *p = esp_partition_find_first(\n          ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_NVS, nullptr);\n      char buf[64];\n      snprintf(buf, sizeof(buf), \"%u/%u entries, %u kB partition\",\n               (unsigned) s.used_entries, (unsigned) s.total_entries,\n               p != nullptr ? (unsigned) (p->size / 1024) : 0);\n      return {std::string(buf)};\n"
     },
     {
       "slug": "psram_free",
@@ -2829,7 +2844,8 @@
         "Requires an active api: connection - the homeassistant binary_sensor platform reads the toggle over the API.",
         "The device can only see the toggle WHILE AWAKE. Flip the HA input_boolean ON *before* the next wake so the device catches it during its brief run_duration window (that window is your OTA opportunity).",
         "When the toggle goes back OFF (on_release), deep_sleep.allow re-arms sleep and restarts the run_duration timer, so the device stays awake for a fresh run_duration before sleeping again.",
-        "Create the helper in HA: Settings > Devices & Services > Helpers > Toggle, matching st_prevent_sleep_entity."
+        "Create the helper in HA: Settings > Devices & Services > Helpers > Toggle, matching st_prevent_sleep_entity.",
+        "ESPHome 2026.8+ adds an on_wake trigger to deep_sleep (fires with the wake cause, per-ext1-pin triggers supported) - useful for wake-reason telemetry; not emitted here to keep the 2026.5+ floor."
       ],
       "path": "templates/inputs/deep_sleep_control.yaml",
       "body": "defaults:\n  st_sleep_duration: 10min\n  st_run_duration: 60s\n  st_prevent_sleep_entity: input_boolean.prevent_deep_sleep\n\ndeep_sleep:\n  id: st_deep_sleep\n  sleep_duration: ${st_sleep_duration}\n  run_duration: ${st_run_duration}\n\nbinary_sensor:\n  # Always internal: this is a control input from HA, not a user-facing entity.\n  - platform: homeassistant\n    id: st_prevent_sleep\n    entity_id: ${st_prevent_sleep_entity}\n    internal: true\n    # Toggle ON in HA -> hold the device awake.\n    on_press:\n      then:\n        - deep_sleep.prevent: st_deep_sleep\n    # Toggle OFF in HA -> re-allow sleep and restart the run_duration timer.\n    on_release:\n      then:\n        - deep_sleep.allow: st_deep_sleep\n"
@@ -3387,7 +3403,8 @@
         "RGB ORDER - the WS2812/SK6812/APA106 family is GRB; WS2811 strips are commonly RGB. If red and green look swapped, flip st_rgb_order.",
         "Effects are compiled in but cost nothing until activated from HA - an idle effect list adds only flash/RAM, no runtime work, so the curated list below is free to keep.",
         "The plain (non-addressable) pulse/random/strobe/flicker effects are valid on an addressable light too - they drive the whole strip as one uniform color. Slow Pulse and Slow Random below are exactly that.",
-        "rmt_symbols / use_dma are optional RMT tuning knobs; the defaults are fine for typical strips on ESP-IDF, so they are omitted here."
+        "rmt_symbols / use_dma are optional RMT tuning knobs; the defaults are fine for typical strips on ESP-IDF, so they are omitted here.",
+        "DEPRECATION (2026.8): rgb_order is deprecated in favor of channel_colors and will be REMOVED in 2027.3.0. This file keeps rgb_order on purpose - channel_colors only exists on 2026.8.0+ (verified: 2026.7.4 rejects it) and switching now would break every earlier install for zero functional gain. Until then 2026.8 prints a harmless warning. Migration when the library floor reaches 2026.8: replace the rgb_order line with channel_colors using the same value."
       ],
       "path": "templates/lighting/led_strip.yaml",
       "body": "substitutions:\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n\ndefaults:\n  st_led_strip_id: st_led_strip\n  st_led_strip_name: \"LED Strip\"\n  st_num_leds: \"30\"\n  st_led_chipset: WS2812\n  st_rgb_order: GRB\n  st_power_limit: \"0.5\"\n  st_light_restore_mode: ALWAYS_OFF\n\nlight:\n  - platform: esp32_rmt_led_strip\n    # id/name/pin are vars so the file can be included multiple times.\n    id: ${st_led_strip_id}\n    name: \"${st_name_prefix}${st_led_strip_name}\"\n    pin: ${st_led_strip_pin}\n    num_leds: ${st_num_leds}\n    chipset: ${st_led_chipset}\n    rgb_order: ${st_rgb_order}\n    restore_mode: ${st_light_restore_mode}\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n    # THE power limiter: scales every channel by st_power_limit so full white\n    # can never exceed the USB current budget. 3 entries = R, G, B.\n    # Block-list form (not [a, b, c]) because a ${...} at the start of a flow\n    # sequence is misread as a YAML flow map by the parser.\n    color_correct:\n      - ${st_power_limit}\n      - ${st_power_limit}\n      - ${st_power_limit}\n    effects:\n      - addressable_rainbow:\n          name: Rainbow\n          speed: 10\n          width: 50\n      - addressable_color_wipe:\n          name: Color Wipe\n          add_led_interval: 100ms\n          reverse: false\n      - addressable_scan:\n          name: Scan\n          move_interval: 100ms\n          scan_width: 1\n      - addressable_twinkle:\n          name: Twinkle\n          twinkle_probability: 5%\n          progress_interval: 32ms\n      - addressable_random_twinkle:\n          name: Random Twinkle\n          twinkle_probability: 5%\n          progress_interval: 32ms\n      - addressable_fireworks:\n          name: Fireworks\n          update_interval: 32ms\n          spark_probability: 10%\n          use_random_color: false\n          fade_out_rate: 120\n      # colors defaults to a single random LED per step; spelling it out here\n      # makes the \"random: true\" intent explicit. num_leds is required on every\n      # colors entry - it is how many LEDs that color occupies per wipe step.\n      - addressable_color_wipe:\n          name: Color Wipe Random\n          colors:\n            - random: true\n              num_leds: 1\n          add_led_interval: 100ms\n          reverse: false\n      - addressable_flicker:\n          name: Flicker\n          update_interval: 16ms\n          intensity: 5%\n      # Non-addressable effects: these light the whole strip uniformly.\n      - pulse:\n          name: Slow Pulse\n          transition_length: 1s\n          update_interval: 2s\n          min_brightness: 10%\n          max_brightness: 100%\n      - random:\n          name: Slow Random\n          transition_length: 5s\n          update_interval: 7s\n"
@@ -3505,6 +3522,7 @@
         "POWER CAP - each RGB LED draws ~60 mA at full white, and the dedicated white channel adds up to another ~20 mA/LED at full W. A 500 mA USB budget minus ~150 mA for the ESP32 leaves headroom for only ~5-8 LEDs at 100%. st_power_limit_rgbw defaults to 0.5 (color_correct halves all four channels). Raise it toward 1.0 ONLY with an injected power supply.",
         "color_correct has 4 entries here (R, G, B, W) to match the RGBW pixel.",
         "Effects are compiled in but cost nothing until activated - an idle effect list adds only flash/RAM, no runtime work, and addressable effects work fine on RGBW strips.",
+        "DEPRECATION (2026.8): rgb_order + is_rgbw are deprecated in favor of channel_colors (e.g. GRBW) and will be REMOVED in 2027.3.0. This file keeps the old keys on purpose - channel_colors only exists on 2026.8.0+ (verified: 2026.7.4 rejects it) and switching now would break every earlier install. Until then 2026.8 prints a harmless warning. Migration when the library floor reaches 2026.8: replace both lines with channel_colors: <order>W (the var value with W appended).",
         "The plain (non-addressable) pulse/random/strobe/flicker effects are valid on an addressable light too - they drive the whole strip as one uniform color. Slow Pulse and Slow Random below are exactly that; the addressable effects set RGB and leave the dedicated W channel dark."
       ],
       "path": "templates/lighting/led_strip_rgbw.yaml",
@@ -3990,11 +4008,11 @@
       ],
       "notes": [
         "A channel number is not a measurement, so state_class is intentionally omitted (st_state_class does not apply).",
-        "Uses esp_wifi_sta_get_ap_info directly (ESP-IDF). esp_wifi.h is NOT in scope in ESPHome lambdas by default, so this file force-includes it into main.cpp via platformio_options build_src_flags (project sources only - the framework build is untouched).",
+        "Uses esp_wifi_sta_get_ap_info directly (ESP-IDF). esp_wifi.h is NOT in scope in ESPHome lambdas by default, so this file injects #include <esp_wifi.h> into main.cpp via esphome includes: (toolchain-independent: works on both the native ESP-IDF toolchain that 2026.7 made the default and the legacy PlatformIO one).",
         "Returns NAN (state unknown) when the device is not associated."
       ],
       "path": "templates/network/wifi_channel.yaml",
-      "body": "substitutions:\n  st_update_interval: 60s\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n\nesphome:\n  # esp_wifi.h is not included in main.cpp by any component, so force-include\n  # it for the lambda below. build_src_flags only affects the project's own\n  # src/ (main.cpp) and the list concatenates with flags from other templates.\n  platformio_options:\n    build_src_flags:\n      - \"-include esp_wifi.h\"\n\nsensor:\n  - platform: template\n    id: st_wifi_channel\n    name: \"${st_name_prefix}WiFi Channel\"\n    icon: mdi:wifi-settings\n    accuracy_decimals: 0\n    entity_category: diagnostic\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n    update_interval: ${st_update_interval}\n    lambda: |-\n      wifi_ap_record_t info;\n      if (esp_wifi_sta_get_ap_info(&info) != ESP_OK) return NAN;\n      return info.primary;\n"
+      "body": "substitutions:\n  st_update_interval: 60s\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n\nesphome:\n  # esp_wifi.h is not included in main.cpp by any component, so\n  # force-include it for the lambda below.\n  # ESPHome 2026.7 flipped the default ESP32 toolchain from PlatformIO to\n  # native ESP-IDF, where the old platformio_options/build_src_flags mechanism\n  # is ignored and even esphome->build_flags drops -include flags (the native\n  # generator forwards only -D/-W; verified by failed 2026.8.0 compiles).\n  # esphome->includes with <...> system-header entries is the correct\n  # toolchain-independent mechanism: it emits a literal #include into\n  # main.cpp via codegen (no file copying), works identically on 2026.6.5,\n  # 2026.7.4 and 2026.8.0 (all probed), and lists concatenate across packages.\n  includes:\n    - <esp_wifi.h>\n\nsensor:\n  - platform: template\n    id: st_wifi_channel\n    name: \"${st_name_prefix}WiFi Channel\"\n    icon: mdi:wifi-settings\n    accuracy_decimals: 0\n    entity_category: diagnostic\n    disabled_by_default: ${st_disabled_by_default}\n    internal: ${st_internal}\n    update_interval: ${st_update_interval}\n    lambda: |-\n      wifi_ap_record_t info;\n      if (esp_wifi_sta_get_ap_info(&info) != ESP_OK) return NAN;\n      return info.primary;\n"
     },
     {
       "slug": "wifi_disconnect_counter",
@@ -4748,6 +4766,94 @@
       ],
       "path": "templates/presence/ld2450.yaml",
       "body": "substitutions:\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n  st_state_class: measurement\n\n# Dedicated UART for this radar (256000 baud is the module's fixed rate).\nuart:\n  - id: st_ld2450_uart\n    tx_pin: ${st_ld2450_uart_tx_pin}\n    rx_pin: ${st_ld2450_uart_rx_pin}\n    baud_rate: 256000\n    parity: NONE\n    stop_bits: 1\n\nld2450:\n  id: st_ld2450\n  uart_id: st_ld2450_uart\n\nbinary_sensor:\n  - platform: ld2450\n    ld2450_id: st_ld2450\n    has_target:\n      id: st_ld2450_presence\n      name: \"${st_name_prefix}Presence\"\n      device_class: occupancy\n      disabled_by_default: ${st_disabled_by_default}\n      internal: ${st_internal}\n\nsensor:\n  - platform: ld2450\n    ld2450_id: st_ld2450\n    target_count:\n      id: st_ld2450_target_count\n      name: \"${st_name_prefix}Target Count\"\n      icon: mdi:account-group\n      accuracy_decimals: 0\n      state_class: \"${st_state_class}\"\n      disabled_by_default: ${st_disabled_by_default}\n      internal: ${st_internal}\n"
+    },
+    {
+      "slug": "ld6002b",
+      "title": "LD6002B 3D mmWave Presence",
+      "category": "presence",
+      "description": "HiLink HLK-LD6002B 60GHz mmWave radar with 3D (X/Y/Z) multi-target tracking over UART. Exposes occupancy, the active target count and the first target's 3D position. Owns its own uart: bus.",
+      "platforms": [
+        "esp32",
+        "esp32s2",
+        "esp32s3",
+        "esp32c3",
+        "esp32c6"
+      ],
+      "requires": [],
+      "entities": [
+        {
+          "domain": "binary_sensor",
+          "name": "Presence"
+        },
+        {
+          "domain": "sensor",
+          "name": "Target Count"
+        },
+        {
+          "domain": "sensor",
+          "name": "Target 1 X"
+        },
+        {
+          "domain": "sensor",
+          "name": "Target 1 Y"
+        },
+        {
+          "domain": "sensor",
+          "name": "Target 1 Z"
+        }
+      ],
+      "vars": [
+        {
+          "name": "st_name_prefix",
+          "default": "",
+          "required": false,
+          "secret": false,
+          "description": "Prefix prepended to every entity name"
+        },
+        {
+          "name": "st_disabled_by_default",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Ship the entities disabled in HA"
+        },
+        {
+          "name": "st_internal",
+          "default": "false",
+          "required": false,
+          "secret": false,
+          "description": "Hide the entities from HA/web entirely"
+        },
+        {
+          "name": "st_state_class",
+          "default": "measurement",
+          "required": false,
+          "secret": false,
+          "description": "state_class for the numeric sensors; set \"\" to opt out of HA long-term statistics"
+        },
+        {
+          "name": "st_ld6002b_uart_tx_pin",
+          "default": "",
+          "required": true,
+          "secret": false,
+          "description": "GPIO wired to the sensor RX pin (ESP TX)"
+        },
+        {
+          "name": "st_ld6002b_uart_rx_pin",
+          "default": "",
+          "required": true,
+          "secret": false,
+          "description": "GPIO wired to the sensor TX pin (ESP RX)"
+        }
+      ],
+      "notes": [
+        "Requires ESPHome 2026.8.0+ (component added in 2026.8).",
+        "Unlike the 24GHz LD2410/LD2450, the LD6002B is a 60GHz (58-64GHz) radar that reports true 3D target coordinates (X/Y/Z in metres) rather than 1D distance or a 2D plane. It tracks up to 3 targets and supports 4 detection areas plus 4 interference/masking areas; ~6m range, +/-60 deg beam, ~0.4m accuracy. Mount it with the antenna facing the detection area and the pin header along the bottom edge - the reported axes assume that orientation.",
+        "The LD6002B needs a 115200 baud UART (8 data bits, parity NONE, 1 stop bit) with BOTH tx_pin and rx_pin wired. Do not use the ESP's primary/boot UART pins - bootloader chatter on them corrupts the radar's state. ESP32 has 3 hardware UARTs, C3/C6 have 2 - one is usually taken by the logger (UART0).",
+        "This preset keeps it light (presence + count + target 1 position). The component also offers target_2/target_3 X/Y/Z, doppler_index, cluster_id, point_count, per-target and per-area binary sensors, work_mode/ota_version text sensors, and the full config surface (number: hold_delay/z_min/z_max/low_power_sleep_time/area_config, select: sensitivity/trigger_speed/installation_mode/area_id, switch: low_power/point_cloud/target_display, button: apply_area/auto_interference/clear_interference/wake/...). Add those platforms with ld6002b_id: st_ld6002b, or !extend st_ld6002b for wakeup_pin/wakeup_pulse/auto_wake."
+      ],
+      "path": "templates/presence/ld6002b.yaml",
+      "body": "substitutions:\n  st_name_prefix: \"\"\n  st_disabled_by_default: \"false\"\n  st_internal: \"false\"\n  st_state_class: measurement\n\n# Dedicated UART for this radar. 115200/8N1 is enforced by the component's\n# final validation - it rejects the config outright if the bus differs.\nuart:\n  - id: st_ld6002b_uart\n    tx_pin: ${st_ld6002b_uart_tx_pin}\n    rx_pin: ${st_ld6002b_uart_rx_pin}\n    baud_rate: 115200\n    data_bits: 8\n    parity: NONE\n    stop_bits: 1\n\nld6002b:\n  id: st_ld6002b\n  uart_id: st_ld6002b_uart\n\nbinary_sensor:\n  - platform: ld6002b\n    ld6002b_id: st_ld6002b\n    # \"target\" is any-target presence; per-slot target_1..3 exist too.\n    target:\n      id: st_ld6002b_presence\n      name: \"${st_name_prefix}Presence\"\n      device_class: occupancy\n      disabled_by_default: ${st_disabled_by_default}\n      internal: ${st_internal}\n\nsensor:\n  - platform: ld6002b\n    ld6002b_id: st_ld6002b\n    target_count:\n      id: st_ld6002b_target_count\n      name: \"${st_name_prefix}Target Count\"\n      icon: mdi:account-group\n      accuracy_decimals: 0\n      state_class: \"${st_state_class}\"\n      disabled_by_default: ${st_disabled_by_default}\n      internal: ${st_internal}\n    # Slot 1 only - a target keeps its slot while it stays tracked, and new\n    # arrivals take the lowest free slot, so target_1 is the \"primary\" person.\n    # The platform already applies a 1s timeout + throttle filter to these\n    # streamed values, so no update_interval knob applies (the radar pushes).\n    target_1:\n      x:\n        id: st_ld6002b_target1_x\n        name: \"${st_name_prefix}Target 1 X\"\n        device_class: distance\n        unit_of_measurement: m\n        accuracy_decimals: 2\n        state_class: \"${st_state_class}\"\n        disabled_by_default: ${st_disabled_by_default}\n        internal: ${st_internal}\n      y:\n        id: st_ld6002b_target1_y\n        name: \"${st_name_prefix}Target 1 Y\"\n        device_class: distance\n        unit_of_measurement: m\n        accuracy_decimals: 2\n        state_class: \"${st_state_class}\"\n        disabled_by_default: ${st_disabled_by_default}\n        internal: ${st_internal}\n      z:\n        id: st_ld6002b_target1_z\n        name: \"${st_name_prefix}Target 1 Z\"\n        device_class: distance\n        unit_of_measurement: m\n        accuracy_decimals: 2\n        state_class: \"${st_state_class}\"\n        disabled_by_default: ${st_disabled_by_default}\n        internal: ${st_internal}\n"
     },
     {
       "slug": "ir_receiver",

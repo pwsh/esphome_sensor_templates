@@ -101,6 +101,12 @@ packages:
   presence_ld2410: !include
     file: ../templates/presence/ld2410.yaml
     vars: { st_ld2410_uart_tx_pin: GPIO47, st_ld2410_uart_rx_pin: GPIO21 }
+  presence_ld6002b: !include
+    file: ../templates/presence/ld6002b.yaml
+    vars:
+      st_ld6002b_uart_tx_pin: GPIO35
+      st_ld6002b_uart_rx_pin: GPIO36
+      st_name_prefix: "LD6002B "
 
   # ── peripherals (chip-agnostic ones; camera/IR/RF/LD2450 live
   #    in peripherals_esp32.yaml, their pin maps want a classic ESP32) ─

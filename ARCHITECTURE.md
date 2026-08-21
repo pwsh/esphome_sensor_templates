@@ -114,8 +114,11 @@ Three layers, in increasing strength:
    classic-ESP32 pin-map-heavy set and sources its whole `esphome:` block from `device_base`.
 3. Real firmware compiles (`esphome compile`) for lambda-bearing and codegen-heavy template
    sets — the only layer that catches missing C headers (config validation happily passes
-   configs that cannot build). IDF headers are force-included per file via
-   `platformio_options: build_src_flags`.
+   configs that cannot build). IDF headers are injected per file via `esphome:`
+   `includes:` with `<header.h>` system entries, which codegens a literal `#include` into
+   main.cpp. (The previous `platformio_options: build_src_flags` mechanism silently died when
+   ESPHome 2026.7 made native ESP-IDF the default toolchain — platformio options are ignored
+   there, and `esphome: build_flags:` forwards only `-D`/`-W` flags, dropping `-include`.)
 
 ## Deployment
 

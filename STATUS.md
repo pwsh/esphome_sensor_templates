@@ -1,11 +1,11 @@
 # Project Status
 
-_Last updated: 2026-08-05 (ESPHome 2026.6.5)._
+_Last updated: 2026-08-21 (validated against ESPHome 2026.8.0)._
 
 ## What exists
 
-- **76 templates** across **12 categories** (counts from the generated catalog):
-  core 14 · diagnostics 16 · network 7 · lighting 6 · audio 4 · environment 6 · presence 2 ·
+- **77 templates** across **12 categories** (counts from the generated catalog):
+  core 14 · diagnostics 16 · network 7 · lighting 6 · audio 4 · environment 6 · presence 3 ·
   bluetooth 2 · remote 4 · peripherals 4 · controls 6 · inputs 5.
 - **Web config builder** at <https://pwsh.github.io/esphome_sensor_templates/> — board/variant
   picker (all 10 ESP32 variants), device identity + network + timezone panel, per-template
@@ -24,9 +24,39 @@ _Last updated: 2026-08-05 (ESPHome 2026.6.5)._
   `all_templates` (S3 kitchen sink, the merge proof), `peripherals_esp32` (camera/IR/RF/LD2450,
   identity fully package-sourced).
 
+## Changelog review (2026-08-21, ESPHome 2026.7/2026.8 + HA 2026.6-2026.8)
+
+Full sweep of the ESPHome 2026.7.x/2026.8.0 changelogs and Home Assistant 2026.6-2026.8
+release notes against the library's component inventory, plus an empirical pass (every example
+run through `esphome config` on 2026.8.0, real compiles on both toolchains). Outcomes:
+
+- **Fixed - toolchain flip broke IDF lambdas**: 2026.7 made native ESP-IDF the default ESP32
+  toolchain, where `platformio_options: build_src_flags` is ignored — the five IDF-header
+  templates (nvs_usage, chip_info, flash_info, memory_info, wifi_channel) failed real compiles
+  on 2026.8.0. Migrated to `esphome: includes:` with `<header.h>` system entries (codegen'd
+  `#include` in main.cpp), verified working on 2026.6.5, 2026.7.4 and 2026.8.0.
+- **Adopted - web_server digest auth**: 2026.8 warns on configs without an explicit auth
+  `type:`; the default flips basic→digest in 2027.1.0. web_server.yaml now emits
+  `type: ${st_web_auth_scheme}` (default `digest`), raising that one file's floor to 2026.7.0.
+  Verified in 2026.8 source that the boot-gate and empty-username fail-open are scheme-independent.
+- **Deferred - strip channel_colors**: `rgb_order`/`is_rgbw` on esp32_rmt_led_strip are
+  deprecated for `channel_colors:` (removed 2027.3.0), but the new key only exists on 2026.8.0+
+  (2026.7.4 rejects it — probed). Both strip templates keep the old keys with a documented
+  migration note; revisit before 2027.3.
+- **Added - ld6002b**: new template for the HLK-LD6002B 60 GHz 3D presence radar (component
+  added in 2026.8.0; that template requires 2026.8.0+).
+- **Documented, no config change**: HA 2026.6 flipped bluetooth_proxy's default scan mode to
+  Auto; 2026.8 fixed the ble_tracker scan window under WiFi coexistence; 2026.7+ safe_mode
+  `storage: rtc` and 2026.8 deep_sleep `on_wake` are noted as opt-ins; 2026.8 fixed the P4
+  production-silicon bootloader (builder hint updated).
+- **Checked, not affected**: `packages:` bare-include removal (2026.7) — the library and all
+  builder output use the mapping form; api password removal (2026.1) — encryption-only already;
+  web_server v1 sunset (2027.1) — v3 already; light brightness-0 semantics change; new
+  merge-key warnings; voc/nox renames (components not used).
+
 ## Verification state
 
-- All four example configs pass `esphome config` on 2026.6.5 (run `tools/validate.sh`).
+- All four example configs pass `esphome config` on 2026.8.0 (run `tools/validate.sh`).
 - Real firmware compiled for: the 19-template diagnostics set (incl. NVS/WiFi-channel IDF
   lambdas), the hardware-info + all-lighting set, and the peripherals set (camera, IR/RF,
   LD2450, syslog, device_base) — all `esp32dev`/ESP-IDF.
@@ -42,8 +72,10 @@ _Last updated: 2026-08-05 (ESPHome 2026.6.5)._
 - Re-declaring an id across packages is a hard error; `!extend` is the only cross-package
   attachment mechanism. Only one SNTP instance is allowed per config.
 - ESPHome lambdas see no IDF headers by default (`nvs.h`, `esp_wifi.h`, `esp_chip_info.h`…);
-  templates force-include what they need via `build_src_flags`. Only a real compile catches
-  violations.
+  templates inject them via `esphome: includes:` `<header.h>` system entries (codegen'd
+  `#include` lines in main.cpp — toolchain-independent). Only a real compile catches
+  violations. The old `build_src_flags` route silently broke when 2026.7 switched the default
+  toolchain to native ESP-IDF.
 - ESP32-H2 and ESP32-P4 have no WiFi radio (a `wifi:` block fails validation); the builder
   suppresses the network surface for them.
 - `syslog`, `runtime_stats`, and `ld2450` are official components (2026.6); the third-party

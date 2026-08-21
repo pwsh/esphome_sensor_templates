@@ -44,3 +44,4 @@ packages:
 - NOT available on ESP32-S2 - that chip has no Bluetooth radio at all. Works on esp32, esp32s3, esp32c3 and esp32c6.
 - The BLE stack costs a significant chunk of RAM and flash - expect a noticeable heap drop after enabling it. It is frequently paired with bluetooth_proxy.yaml (which depends on this scanner).
 - On single-core chips (ESP32-C3) both WiFi and the BLE tracker share one core; enable software_coexistence manually if you see WiFi/BLE contention.
+- BEHAVIOR CHANGE in 2026.8.0: with WiFi coexistence on ESP-IDF >= 5.5.5 the scan window now defaults to the full scan interval, fixing trackers missing most advertisements alongside WiFi (a regression since 2026.7.1). No config change needed; explicit window: settings are honored as before.

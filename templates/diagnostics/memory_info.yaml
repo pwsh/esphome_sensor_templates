@@ -21,12 +21,18 @@ substitutions:
   st_internal: "false"
 
 esphome:
-  # esp_heap_caps.h is not pulled into main.cpp by any component, so force-include
-  # it for the lambdas below. build_src_flags only affects the project's own src/
-  # (main.cpp) and the list concatenates cleanly with flags from other templates.
-  platformio_options:
-    build_src_flags:
-      - "-include esp_heap_caps.h"
+  # esp_heap_caps.h is not pulled into main.cpp by any component, so
+  # force-include it for the lambdas below.
+  # ESPHome 2026.7 flipped the default ESP32 toolchain from PlatformIO to
+  # native ESP-IDF, where the old platformio_options/build_src_flags mechanism
+  # is ignored and even esphome->build_flags drops -include flags (the native
+  # generator forwards only -D/-W; verified by failed 2026.8.0 compiles).
+  # esphome->includes with <...> system-header entries is the correct
+  # toolchain-independent mechanism: it emits a literal #include into
+  # main.cpp via codegen (no file copying), works identically on 2026.6.5,
+  # 2026.7.4 and 2026.8.0 (all probed), and lists concatenate across packages.
+  includes:
+    - <esp_heap_caps.h>
   on_boot:
     # priority -100 runs late, after all sensors are set up, so the one-shot
     # component.updates below publish into live entities.

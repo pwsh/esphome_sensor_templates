@@ -11,6 +11,7 @@
 # @note: SAFE to also include bluetooth/ble_tracker.yaml if you want to tune scan parameters - the auto-loaded tracker and the explicit esp32_ble_tracker block merge cleanly (verified: no duplicate-component error). Include ble_tracker.yaml only when you need to change interval/window/duration/active.
 # @note: Active connections are limited (default 3, hard max 9); each open GATT connection uses RAM, so keep the count low.
 # @note: NOT available on ESP32-S2 (no Bluetooth radio). Requires the native API (api:) enabled and the device adopted into Home Assistant.
+# @note: Home Assistant 2026.6 changed the proxy's default scan mode to Auto (passive listening with brief active bursts, ~95% battery-device savings vs always-Active); devices previously set to Active were auto-migrated. ESPHome 2026.7 also fixed the 'connected but no advertisements' condition after HA restarts (a newer HA subscriber now takes over a stale slot). Both are runtime/HA-side - no config change here.
 
 defaults:
   st_bt_proxy_active: "true"

@@ -20,6 +20,7 @@
 # @note: POWER CAP - each RGB LED draws ~60 mA at full white, and the dedicated white channel adds up to another ~20 mA/LED at full W. A 500 mA USB budget minus ~150 mA for the ESP32 leaves headroom for only ~5-8 LEDs at 100%. st_power_limit_rgbw defaults to 0.5 (color_correct halves all four channels). Raise it toward 1.0 ONLY with an injected power supply.
 # @note: color_correct has 4 entries here (R, G, B, W) to match the RGBW pixel.
 # @note: Effects are compiled in but cost nothing until activated - an idle effect list adds only flash/RAM, no runtime work, and addressable effects work fine on RGBW strips.
+# @note: DEPRECATION (2026.8): rgb_order + is_rgbw are deprecated in favor of channel_colors (e.g. GRBW) and will be REMOVED in 2027.3.0. This file keeps the old keys on purpose - channel_colors only exists on 2026.8.0+ (verified: 2026.7.4 rejects it) and switching now would break every earlier install. Until then 2026.8 prints a harmless warning. Migration when the library floor reaches 2026.8: replace both lines with channel_colors: <order>W (the var value with W appended).
 # @note: The plain (non-addressable) pulse/random/strobe/flicker effects are valid on an addressable light too - they drive the whole strip as one uniform color. Slow Pulse and Slow Random below are exactly that; the addressable effects set RGB and leave the dedicated W channel dark.
 
 # Shared knobs live under substitutions: (not defaults:) so a single

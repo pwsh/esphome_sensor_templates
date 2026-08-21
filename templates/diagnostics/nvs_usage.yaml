@@ -22,13 +22,18 @@ substitutions:
 
 esphome:
   # nvs.h / esp_partition.h are not pulled into main.cpp by any component, so
-  # force-include them for the lambda below. build_src_flags only affects the
-  # project's own src/ (main.cpp), not the framework build, and the list
-  # concatenates cleanly with flags from other templates.
-  platformio_options:
-    build_src_flags:
-      - "-include nvs.h"
-      - "-include esp_partition.h"
+  # force-include them for the lambda below.
+  # ESPHome 2026.7 flipped the default ESP32 toolchain from PlatformIO to
+  # native ESP-IDF, where the old platformio_options/build_src_flags mechanism
+  # is ignored and even esphome->build_flags drops -include flags (the native
+  # generator forwards only -D/-W; verified by failed 2026.8.0 compiles).
+  # esphome->includes with <...> system-header entries is the correct
+  # toolchain-independent mechanism: it emits a literal #include into
+  # main.cpp via codegen (no file copying), works identically on 2026.6.5,
+  # 2026.7.4 and 2026.8.0 (all probed), and lists concatenate across packages.
+  includes:
+    - <nvs.h>
+    - <esp_partition.h>
 
 text_sensor:
   - platform: template

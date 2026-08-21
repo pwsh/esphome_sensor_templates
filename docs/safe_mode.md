@@ -41,3 +41,4 @@ packages:
 ## Notes
 
 - Required by the safe_mode button/switch platforms. safe_mode is auto-enabled anyway whenever ota: is present - this preset just tunes its thresholds.
+- ESPHome 2026.7+ adds a storage: rtc|flash option (RTC-backed boot counter avoids NVS wear) and 2026.8 makes safe_mode prevent OTA rollback when entering deep sleep. Not emitted here to keep the file compatible with 2026.5+; to use it, add `safe_mode: storage: rtc` in your main config - top-level dicts merge key-by-key with this package.
