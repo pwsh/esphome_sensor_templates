@@ -45,4 +45,4 @@ packages:
 - The device can only see the toggle WHILE AWAKE. Flip the HA input_boolean ON *before* the next wake so the device catches it during its brief run_duration window (that window is your OTA opportunity).
 - When the toggle goes back OFF (on_release), deep_sleep.allow re-arms sleep and restarts the run_duration timer, so the device stays awake for a fresh run_duration before sleeping again.
 - Create the helper in HA: Settings > Devices & Services > Helpers > Toggle, matching st_prevent_sleep_entity.
-- ESPHome 2026.8+ adds an on_wake trigger to deep_sleep (fires with the wake cause, per-ext1-pin triggers supported) - useful for wake-reason telemetry; not emitted here to keep the 2026.5+ floor.
+- ESPHome 2026.8+ adds an on_wake trigger to deep_sleep (fires with the wake cause, per-ext1-pin triggers supported) - a ready-to-enable on_wake block that logs the wake cause ships commented out in the deep_sleep block below (kept off to preserve the 2026.5 floor); uncomment it on 2026.8+.

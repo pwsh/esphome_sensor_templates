@@ -22,7 +22,7 @@
 # @note: Effects are compiled in but cost nothing until activated from HA - an idle effect list adds only flash/RAM, no runtime work, so the curated list below is free to keep.
 # @note: The plain (non-addressable) pulse/random/strobe/flicker effects are valid on an addressable light too - they drive the whole strip as one uniform color. Slow Pulse and Slow Random below are exactly that.
 # @note: rmt_symbols / use_dma are optional RMT tuning knobs; the defaults are fine for typical strips on ESP-IDF, so they are omitted here.
-# @note: DEPRECATION (2026.8): rgb_order is deprecated in favor of channel_colors and will be REMOVED in 2027.3.0. This file keeps rgb_order on purpose - channel_colors only exists on 2026.8.0+ (verified: 2026.7.4 rejects it) and switching now would break every earlier install for zero functional gain. Until then 2026.8 prints a harmless warning. Migration when the library floor reaches 2026.8: replace the rgb_order line with channel_colors using the same value.
+# @note: DEPRECATION (2026.8): rgb_order is deprecated in favor of channel_colors and will be REMOVED in 2027.3.0. This file keeps rgb_order on purpose - channel_colors only exists on 2026.8.0+ (verified: 2026.7.4 rejects it) and switching now would break every earlier install for zero functional gain. Until then 2026.8 prints a harmless warning. A ready-to-enable replacement ships commented out next to the rgb_order line: on 2026.8.0+, delete rgb_order and uncomment channel_colors (same var value).
 
 # Shared knobs live under substitutions: (not defaults:) so a single
 # main-config substitution overrides them across every included template;
@@ -49,7 +49,13 @@ light:
     pin: ${st_led_strip_pin}
     num_leds: ${st_num_leds}
     chipset: ${st_led_chipset}
+    # DEPRECATED 2026.8 / REMOVED 2027.3.0. Ready-to-enable replacement below:
+    # on ESPHome 2026.8.0+, delete the rgb_order line and uncomment
+    # channel_colors - the st_rgb_order values (RGB/GRB/...) are valid
+    # channel_colors values unchanged. Kept commented out because
+    # channel_colors does not exist before 2026.8.0 and would break the build.
     rgb_order: ${st_rgb_order}
+    # channel_colors: ${st_rgb_order}
     restore_mode: ${st_light_restore_mode}
     disabled_by_default: ${st_disabled_by_default}
     internal: ${st_internal}

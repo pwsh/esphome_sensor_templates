@@ -41,8 +41,11 @@ run through `esphome config` on 2026.8.0, real compiles on both toolchains). Out
   Verified in 2026.8 source that the boot-gate and empty-username fail-open are scheme-independent.
 - **Deferred - strip channel_colors**: `rgb_order`/`is_rgbw` on esp32_rmt_led_strip are
   deprecated for `channel_colors:` (removed 2027.3.0), but the new key only exists on 2026.8.0+
-  (2026.7.4 rejects it — probed). Both strip templates keep the old keys with a documented
-  migration note; revisit before 2027.3.
+  (2026.7.4 rejects it — probed). Both strip templates keep the old keys and ship the
+  replacement as a ready-to-enable commented-out `channel_colors:` line next to them (the
+  safe_mode `storage: rtc` and deep_sleep `on_wake` opt-ins ship the same way); each block was
+  proven by uncommenting per its own instructions and passing `esphome config` + a real compile
+  on 2026.8.0. Revisit before 2027.3.
 - **Added - ld6002b**: new template for the HLK-LD6002B 60 GHz 3D presence radar (component
   added in 2026.8.0; that template requires 2026.8.0+).
 - **Documented, no config change**: HA 2026.6 flipped bluetooth_proxy's default scan mode to
